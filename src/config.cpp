@@ -209,6 +209,36 @@ Config Config::load(const std::string& custom_config_path) {
         cfg.enable_image_analysis = (s == "true" || s == "1" || s == "yes");
     }
 
+    if (auto v = get_env_or_map("SYSTEM_PROMPT", env_file_map)) {
+        cfg.system_prompt = *v;
+    }
+
+    // Support loading custom system prompt from a dedicated file (e.g. system_prompt.txt)
+    std::string prompt_file_path;
+    if (auto v = get_env_or_map("SYSTEM_PROMPT_FILE", env_file_map)) {
+        prompt_file_path = *v;
+    } else if (std::filesystem::exists("system_prompt.txt")) {
+        prompt_file_path = "system_prompt.txt";
+    } else if (std::filesystem::exists("../system_prompt.txt")) {
+        prompt_file_path = "../system_prompt.txt";
+    }
+
+    if (!prompt_file_path.empty()) {
+        try {
+            std::ifstream pf(prompt_file_path);
+            if (pf.is_open()) {
+                std::stringstream buffer;
+                buffer << pf.rdbuf();
+                if (!buffer.str().empty()) {
+                    cfg.system_prompt = buffer.str();
+                    std::cout << "[Config] Loaded custom system prompt from: " << prompt_file_path << std::endl;
+                }
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[Config] Warning: Failed to read custom prompt file " << prompt_file_path << ": " << e.what() << std::endl;
+        }
+    }
+
     return cfg;
 }
 

@@ -197,6 +197,57 @@ docker compose logs -f
 
 ---
 
+## Customizing the System Prompt
+
+You can customize the bot's summarization style, tone of voice, language rules, and structure. There are three convenient ways to do this:
+
+### Option A: Using `system_prompt.txt` (Recommended — No Recompile Required)
+
+Place a plain text file named `system_prompt.txt` in the project root directory:
+
+```bash
+# Copy the provided template to get started
+cp system_prompt.txt.example system_prompt.txt
+```
+
+Edit `system_prompt.txt` using any text editor. The bot automatically detects and loads this file on startup without needing to recompile the C++ binary.
+
+> You can also specify an arbitrary file path in your `.env`:
+> ```ini
+> SYSTEM_PROMPT_FILE=/path/to/my_custom_prompt.txt
+> ```
+
+### Option B: Using `config.json`
+
+Add the `"system_prompt"` property to your `config.json`:
+
+```json
+{
+  "telegram_bot_token": "...",
+  "llm_api_key": "...",
+  "system_prompt": "You are a concise summarizer. Structure the summary with..."
+}
+```
+
+### Option C: In C++ Source Code (Hardcoded Default)
+
+If you want to permanently change the built-in fallback default:
+1. Open [`src/config.cpp`](file:///home/jdn/dev/telegram-summary-bot/src/config.cpp).
+2. Modify the return string in `Config::get_default_system_prompt()`.
+3. Rebuild the project:
+   ```bash
+   cmake --build build
+   ```
+
+### Prompt Tips for Best Results
+- **Language**: Keep the instruction to answer in the primary language of the conversation.
+- **Factual Grounding**: Instruct the model to cite participants by `@username` with direct quotes (`"..."`) to avoid hallucinations.
+- **Emojis**: If you want clean output, keep the rule `ABSOLUTELY NO EMOJIS`.
+- **Formatting**: Use Telegram Markdown (`*bold*`, `_italic_`, `` `code` ``).
+
+---
+
 ## License
 
 [MIT License](./LICENSE). Free to use, modify, and distribute.
+
