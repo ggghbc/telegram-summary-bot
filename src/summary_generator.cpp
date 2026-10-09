@@ -10,7 +10,8 @@ SummaryGenerator::SummaryGenerator(LlmClient& llm_client, const Config& config)
 
 std::string SummaryGenerator::format_timestamp(int64_t timestamp) {
     if (timestamp <= 0) return "N/A";
-    std::time_t t = static_cast<std::time_t>(timestamp);
+    // Convert to Moscow Time (MSK, UTC+3)
+    std::time_t t = static_cast<std::time_t>(timestamp) + 3 * 3600;
     std::tm tm_buf{};
 #if defined(_WIN32)
     gmtime_s(&tm_buf, &t);
@@ -18,7 +19,7 @@ std::string SummaryGenerator::format_timestamp(int64_t timestamp) {
     gmtime_r(&t, &tm_buf);
 #endif
     std::ostringstream oss;
-    oss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M UTC");
+    oss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M МСК");
     return oss.str();
 }
 
@@ -74,7 +75,7 @@ std::string SummaryGenerator::generate(
         "История беседы из " + std::to_string(messages.size()) +
         " сообщений (с " + start_time + " по " + end_time + "):\n\n" +
         "```text\n" + transcript + "```\n\n" +
-        "Сделай емкую, структурированную выжимку этой беседы согласно системным инструкциям.";
+        "Сделай емкую, живую выжимку этой беседы согласно системным инструкциям, строго без эмодзи и без блока открытых вопросов.";
 
     std::string summary = llm_client_.generate_summary(config_.system_prompt, user_content, out_error);
     if (summary.empty()) {
@@ -82,13 +83,13 @@ std::string SummaryGenerator::generate(
     }
 
     std::ostringstream final_msg;
-    final_msg << "📊 *Сводка последних " << messages.size() << " сообщений*\n"
-              << "🕒 _" << start_time << " — " << end_time << "_\n";
+    final_msg << "*Сводка последних " << messages.size() << " сообщений*\n"
+              << "Время: " << start_time << " — " << end_time << "\n";
 
     if (requested_n > 1500) {
-        final_msg << "⚠️ _(Лимит сообщений ограничен максимальным значением 1500)_\n";
+        final_msg << "_(Лимит сообщений ограничен максимальным значением 1500)_\n";
     } else if (requested_n > static_cast<int64_t>(messages.size())) {
-        final_msg << "ℹ️ _(В истории чата было доступно " << messages.size() << " из " << requested_n << " запрошенных)_\n";
+        final_msg << "_(В истории чата было доступно " << messages.size() << " из " << requested_n << " запрошенных)_\n";
     }
 
     final_msg << "\n" << summary;

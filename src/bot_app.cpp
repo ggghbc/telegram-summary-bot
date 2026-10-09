@@ -196,7 +196,7 @@ void BotApp::handle_message(const TelegramMessage& msg) {
         if (n <= 0) {
             bot_->send_message(
                 msg.chat.id,
-                "⚠️ Количество сообщений должно быть больше 0 (максимум 1500).\n"
+                "Количество сообщений должно быть больше 0 (максимум 1500).\n"
                 "Пример использования: @" + bot_->bot_user().username + " 300",
                 msg.message_id
             );
@@ -235,16 +235,16 @@ void BotApp::handle_message(const TelegramMessage& msg) {
 void BotApp::send_help(int64_t chat_id, int64_t reply_to_id) {
     std::string bot_name = bot_->bot_user().username;
     std::string help_text =
-        "👋 *Привет! Я бот для создания кратких сводок (самари) бесед.*\n\n"
-        "📌 *Как мной пользоваться:*\n"
+        "*Бот для создания кратких сводок (самари) бесед.*\n\n"
+        "*Как пользоваться:*\n"
         "• `@" + bot_name + " 500` — сделать самари последних 500 сообщений\n"
         "• `@" + bot_name + " 100` — сделать самари последних 100 сообщений\n"
         "• `/summary 200` — альтернативная команда со счетчиком сообщений\n"
         "• `@" + bot_name + "` — самари с дефолтным числом (" +
         std::to_string(config_.default_messages_to_process) + " сообщений)\n\n"
-        "⚙️ *Ограничения:*\n"
+        "*Ограничения:*\n"
         "• Максимальное число сообщений для анализа: *1500*\n\n"
-        "⚠️ *Важная настройка для работы в группах:*\n"
+        "*Важная настройка для работы в группах:*\n"
         "Telegram-боты по умолчанию видят только команды. Чтобы бот читал все сообщения чата и мог делать по ним сводку:\n"
         "1. Откройте @BotFather\n"
         "2. Вызовите команду `/setprivacy`\n"
@@ -264,8 +264,8 @@ void BotApp::execute_summary_async(
         try {
             int64_t effective_count = std::min(count, config_.max_messages_to_process);
 
-            // Send initial progress status message
-            std::string status_text = "⏳ Собираю последние " + std::to_string(effective_count) + " сообщений и формирую самари...";
+            // Send initial progress status message without emoji
+            std::string status_text = "Сбор последних " + std::to_string(effective_count) + " сообщений и составление самари...";
             int64_t status_msg_id = bot_->send_message(chat_id, status_text, request_msg_id, "Markdown");
 
             // Start typing indicator loop using std::jthread
@@ -288,7 +288,7 @@ void BotApp::execute_summary_async(
                 if (status_msg_id != 0) bot_->delete_message(chat_id, status_msg_id);
 
                 std::string empty_msg =
-                    "⚠️ В истории этого чата пока нет сохраненных сообщений.\n\n"
+                    "В истории этого чата пока нет сохраненных сообщений.\n\n"
                     "Чтобы бот мог читать историю беседы:\n"
                     "1. Убедитесь, что бот добавлен в чат.\n"
                     "2. Отключите Privacy Mode в @BotFather (`/setprivacy` -> *Disable*) "
@@ -312,7 +312,7 @@ void BotApp::execute_summary_async(
             if (!summary.empty()) {
                 bot_->send_message(chat_id, summary, request_msg_id, "Markdown");
             } else {
-                std::string err_msg = "❌ Ошибка при генерации самари: " + error;
+                std::string err_msg = "Ошибка при генерации самари: " + error;
                 bot_->send_message(chat_id, err_msg, request_msg_id, "");
             }
         } catch (const std::exception& e) {
