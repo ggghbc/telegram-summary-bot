@@ -98,7 +98,7 @@ Configure your credentials:
 
 ```ini
 # Bot token from @BotFather
-TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
+TELEGRAM_BOT_TOKEN=your_BotFather_key_here
 
 # LLM API Key
 LLM_API_KEY=your_llm_api_key_here
@@ -121,18 +121,10 @@ LLM_MODEL=gemini-3.1-flash-lite
     LLM_API_KEY=your_gemini_key
     ```
 
-- **Groq**:
-
-    ```ini
-    LLM_API_URL=https://api.groq.com/openai/v1/chat/completions
-    LLM_MODEL=llama-3.3-70b-versatile
-    LLM_API_KEY=your_groq_key
-    ```
-
 - **OpenAI**:
 
     ```ini
-    LLM_API_URL=https://api.openai.com/v1/chat/completions
+    LLM_API_URL=*openai api link*
     LLM_MODEL=gpt-4o-mini
     LLM_API_KEY=your_openai_key
     ```
@@ -140,7 +132,7 @@ LLM_MODEL=gemini-3.1-flash-lite
 - **DeepSeek**:
 
     ```ini
-    LLM_API_URL=https://api.deepseek.com/chat/completions
+    LLM_API_URL=*deepseek api link*
     LLM_MODEL=deepseek-chat
     LLM_API_KEY=your_deepseek_key
     ```
@@ -172,8 +164,8 @@ After=network.target
 [Service]
 Type=simple
 User=$USER
-WorkingDirectory=/*your path to the folder*/telegram-summary-bot
-ExecStart=/*your path to the folder*/build/telegram-summary-bot
+WorkingDirectory=/path/to/telegram-summary-bot
+ExecStart=/path/to/build/telegram-summary-bot
 Restart=always
 RestartSec=5
 
@@ -213,6 +205,7 @@ cp system_prompt.txt.example system_prompt.txt
 Edit `system_prompt.txt` using any text editor. The bot automatically detects and loads this file on startup without needing to recompile the C++ binary.
 
 > You can also specify an arbitrary file path in your `.env`:
+>
 > ```ini
 > SYSTEM_PROMPT_FILE=/path/to/my_custom_prompt.txt
 > ```
@@ -223,23 +216,25 @@ Add the `"system_prompt"` property to your `config.json`:
 
 ```json
 {
-  "telegram_bot_token": "...",
-  "llm_api_key": "...",
-  "system_prompt": "You are a concise summarizer. Structure the summary with..."
+	"telegram_bot_token": "...",
+	"llm_api_key": "...",
+	"system_prompt": "You are a concise summarizer. Structure the summary with..."
 }
 ```
 
 ### Option C: In C++ Source Code (Hardcoded Default)
 
 If you want to permanently change the built-in fallback default:
+
 1. Open [`src/config.cpp`](file:///home/jdn/dev/telegram-summary-bot/src/config.cpp).
 2. Modify the return string in `Config::get_default_system_prompt()`.
 3. Rebuild the project:
-   ```bash
-   cmake --build build
-   ```
+    ```bash
+    cmake --build build
+    ```
 
 ### Prompt Tips for Best Results
+
 - **Language**: Keep the instruction to answer in the primary language of the conversation.
 - **Factual Grounding**: Instruct the model to cite participants by `@username` with direct quotes (`"..."`) to avoid hallucinations.
 - **Emojis**: If you want clean output, keep the rule `ABSOLUTELY NO EMOJIS`.
@@ -250,4 +245,3 @@ If you want to permanently change the built-in fallback default:
 ## License
 
 [MIT License](./LICENSE). Free to use, modify, and distribute.
-
