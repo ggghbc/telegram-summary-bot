@@ -1,0 +1,23 @@
+# Build directories
+build/
+bin/
+*.o
+*.a
+*.so
+
+# SQLite databases
+*.db
+*.db-wal
+*.db-shm
+messages.db
+
+# Configuration & Secrets
+.env
+config.json
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
