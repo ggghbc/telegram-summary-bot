@@ -189,10 +189,12 @@ bool BotApp::parse_bot_invocation(
     const ChatSettings& settings,
     SummaryRequest& out_req,
     bool& out_is_help,
-    bool& out_is_tz_cmd
+    bool& out_is_tz_cmd,
+    bool& out_is_start
 ) const {
     out_is_help = false;
     out_is_tz_cmd = false;
+    out_is_start = false;
     out_req = SummaryRequest{};
     out_req.count = config_.default_messages_to_process;
     out_req.window_desc = "the last " + std::to_string(out_req.count) + " messages";
@@ -224,9 +226,15 @@ bool BotApp::parse_bot_invocation(
         return true;
     }
 
-    // Help/Start command check
+    // Start command check
     if (text_lower.rfind("/start", 0) == 0 ||
-        text_lower.rfind("/help", 0) == 0 ||
+        (mentioned && (text_lower.find("start") != std::string::npos || text_lower.find("старт") != std::string::npos))) {
+        out_is_start = true;
+        return true;
+    }
+
+    // Help command check
+    if (text_lower.rfind("/help", 0) == 0 ||
         text_lower.find("help") != std::string::npos ||
         text_lower.find("помощь") != std::string::npos) {
         out_is_help = true;
@@ -367,9 +375,15 @@ void BotApp::handle_message(const TelegramMessage& msg) {
     SummaryRequest req;
     bool is_help = false;
     bool is_tz_cmd = false;
-    bool is_invocation = parse_bot_invocation(msg, chat_settings, req, is_help, is_tz_cmd);
+    bool is_start = false;
+    bool is_invocation = parse_bot_invocation(msg, chat_settings, req, is_help, is_tz_cmd, is_start);
 
     if (is_invocation) {
+        if (is_start) {
+            send_start(msg.chat.id, msg.thread_id, msg.message_id);
+            return;
+        }
+
         if (is_help) {
             send_help(msg.chat.id, msg.thread_id, msg.message_id);
             return;
@@ -476,28 +490,52 @@ void BotApp::handle_message(const TelegramMessage& msg) {
     }
 }
 
+void BotApp::send_start(int64_t chat_id, int64_t thread_id, int64_t reply_to_id) {
+    std::string bot_name = bot_->bot_user().username;
+    std::string start_text =
+        "*Telegram Conversation Summary Bot*\n\n"
+        "This bot is designed to generate intelligent, structured summaries of conversations in *group chats* and *supergroups*.\n\n"
+        "To get started, please add this bot to your Telegram group or topic chat.\n\n"
+        "*Quick Setup:*\n"
+        "1. Add the bot to your group.\n"
+        "2. Ensure message reading is enabled:\n"
+        "   • Open @BotFather -> `/setprivacy` -> select this bot -> *Disable*\n"
+        "   • Or promote the bot to *Group Administrator*.\n"
+        "3. In the group, request summaries on demand:\n"
+        "   • `@" + bot_name + " 500` — summarize the last 500 messages\n"
+        "   • `@" + bot_name + " 24h` — summarize discussions from the last 24 hours\n"
+        "   • `@" + bot_name + " today` — summarize today's messages\n\n"
+        "For full documentation and feature guide, visit:\n"
+        "https://github.com/ggghbc/telegram-summary-bot";
+
+    bot_->send_message(chat_id, start_text, reply_to_id, "Markdown", thread_id);
+}
+
 void BotApp::send_help(int64_t chat_id, int64_t thread_id, int64_t reply_to_id) {
     std::string bot_name = bot_->bot_user().username;
     std::string help_text =
         "*Telegram Conversation Summary Bot*\n\n"
-        "*Summary Options:*\n"
+        "*Summary Commands:*\n"
         "• `@" + bot_name + " 500` — summarize the last 500 messages\n"
-        "• `@" + bot_name + " 24h` — summarize the last 24 hours\n"
-        "• `@" + bot_name + " today` — summarize all discussions from today\n"
+        "• `@" + bot_name + " 24h` — summarize the last 24 hours (also `12h`, `2h`, `30m`, `1d`)\n"
+        "• `@" + bot_name + " today` — summarize all discussions since midnight today\n"
         "• `@" + bot_name + " 300 about release` — summarize messages with topic focus\n"
-        "• `/timezone +3` — set chat timezone offset\n\n"
-        "*Limits & Features:*\n"
-        "• Hard limit: 1500 messages per request\n"
-        "• Auto-scans images in conversation history to provide visual context\n"
-        "• Strict factual grounding and reply-chain tracing\n"
-        "• Automatically scopes to Forum Topics / Threads if invoked inside one\n"
-        "• Strictly emoji-free and language-adaptive output\n\n"
+        "• `@" + bot_name + " 24h about database` — time-window summary with topic focus\n"
+        "• `/timezone +3` or `/timezone MSK` — view or set chat timezone offset\n\n"
+        "*Key Features:*\n"
+        "• Up to 1,500 messages per summary request\n"
+        "• Automatic visual scanning: converts photos, screenshots, and Telegram stickers into context\n"
+        "• Strict factual grounding: traces reply chains and attributes direct quotes\n"
+        "• Language-adaptive: automatically responds in the primary language of the chat\n"
+        "• Forum Topics & Threads: automatically scopes to the active forum topic\n"
+        "• Clean markdown formatting with zero emojis\n\n"
         "*Important Group Setup:*\n"
         "To allow the bot to read messages in groups:\n"
         "1. Open @BotFather\n"
-        "2. Send `/setprivacy`\n"
-        "3. Choose this bot and click *Disable*\n"
-        "*(or promote the bot to Group Administrator)*.";
+        "2. Send `/setprivacy` -> select this bot -> *Disable*\n"
+        "*(or promote the bot to Group Administrator)*.\n\n"
+        "Documentation & Source Code:\n"
+        "https://github.com/ggghbc/telegram-summary-bot";
 
     bot_->send_message(chat_id, help_text, reply_to_id, "Markdown", thread_id);
 }

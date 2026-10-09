@@ -74,7 +74,8 @@ private:
         const ChatSettings& settings,
         SummaryRequest& out_req,
         bool& out_is_help,
-        bool& out_is_tz_cmd
+        bool& out_is_tz_cmd,
+        bool& out_is_start
     ) const;
 
     void handle_timezone_cmd(const TelegramMessage& msg);
@@ -94,6 +95,7 @@ private:
         bool is_sticker = false
     );
 
+    void send_start(int64_t chat_id, int64_t thread_id, int64_t reply_to_id);
     void send_help(int64_t chat_id, int64_t thread_id, int64_t reply_to_id);
 };
 

@@ -30,6 +30,7 @@ The bot responds to mentions and commands with counts, time intervals, or topic 
 | `@bot_username`                    | Summarize with default count (100 messages)                                            |
 | `/summary 200`                     | Slash command alternative                                                              |
 | `/help` or `@bot_username help`    | Display help and usage instructions                                                    |
+| `/start`                           | Welcome and quick onboarding setup guide                                               |
 
 > **Forum Topics / Threads:** When invoked inside a Telegram Topic / Thread, the bot automatically isolates and summarizes messages exclusively within that topic.
 
