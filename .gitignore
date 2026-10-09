@@ -14,6 +14,7 @@ messages.db
 # Configuration & Secrets
 .env
 config.json
+system_prompt.txt
 
 # IDE & Editor files
 .vscode/
