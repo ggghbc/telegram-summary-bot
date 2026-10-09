@@ -1,4 +1,4 @@
-# Telegram Conversation Summary Bot (C++20)
+# Telegram Conversation Summary Bot
 
 A high-performance Telegram bot that maintains a persistent local chat history and generates concise, structured, and lively conversation summaries on demand for up to 1,500 messages.
 
