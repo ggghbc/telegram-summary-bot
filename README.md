@@ -1,6 +1,6 @@
 # Telegram Conversation Summary Bot
 
-A high-performance Telegram bot that maintains a persistent local chat history and generates concise, structured, and lively conversation summaries on demand for up to 1,500 messages.
+A high-performance Telegram bot that maintains a persistent local chat history and generates concise, structured, and lively conversation summaries on demand for up to 3,000 messages.
 
 ---
 
@@ -17,7 +17,7 @@ A high-performance Telegram bot that maintains a persistent local chat history a
 
 ## Group Chat Usage
 
-The bot responds to mentions and commands with counts, time intervals, or topic filters (hard limit: **1,500** messages):
+The bot responds to mentions and commands with counts, time intervals, or topic filters (hard limit: **3,000** messages):
 
 | Command                            | Description                                                                            |
 | ---------------------------------- | -------------------------------------------------------------------------------------- |

@@ -241,7 +241,7 @@ std::vector<ChatMessage> Database::get_last_messages(int64_t chat_id, int64_t th
     std::vector<ChatMessage> results;
     if (!db_ || !stmt_query_last_ || limit <= 0) return results;
 
-    results.reserve(static_cast<size_t>(std::min<int64_t>(limit, 1500)));
+    results.reserve(static_cast<size_t>(std::min<int64_t>(limit, 3000)));
 
     sqlite3_reset(stmt_query_last_);
     sqlite3_clear_bindings(stmt_query_last_);
@@ -264,7 +264,7 @@ std::vector<ChatMessage> Database::get_messages_since(int64_t chat_id, int64_t t
     std::vector<ChatMessage> results;
     if (!db_ || !stmt_query_since_ || limit <= 0) return results;
 
-    results.reserve(static_cast<size_t>(std::min<int64_t>(limit, 1500)));
+    results.reserve(static_cast<size_t>(std::min<int64_t>(limit, 3000)));
 
     sqlite3_reset(stmt_query_since_);
     sqlite3_clear_bindings(stmt_query_since_);

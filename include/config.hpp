@@ -21,9 +21,9 @@ struct Config {
     double llm_temperature = 0.4;
     int llm_timeout_seconds = 120;
 
-    int64_t max_messages_to_process = 1500;
+    int64_t max_messages_to_process = 3000;
     int64_t default_messages_to_process = 100;
-    int64_t max_stored_messages_per_chat = 3000;
+    int64_t max_stored_messages_per_chat = 5000;
 
     bool admin_only_summaries = false;
     int rate_limit_seconds = 30; // Cooldown between summary requests per chat

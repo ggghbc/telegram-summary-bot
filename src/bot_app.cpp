@@ -432,7 +432,7 @@ void BotApp::handle_message(const TelegramMessage& msg) {
         if (req.type == QueryType::Count && req.count <= 0) {
             bot_->send_message(
                 msg.chat.id,
-                "The message count must be greater than 0 (max 1500).\nExample usage: @" + bot_->bot_user().username + " 300",
+                "The message count must be greater than 0 (max " + std::to_string(config_.max_messages_to_process) + ").\nExample usage: @" + bot_->bot_user().username + " 300",
                 msg.message_id,
                 "",
                 msg.thread_id
@@ -523,7 +523,7 @@ void BotApp::send_help(int64_t chat_id, int64_t thread_id, int64_t reply_to_id) 
         "• `@" + bot_name + " 24h about database` — time-window summary with topic focus\n"
         "• `/timezone +3` or `/timezone MSK` — view or set chat timezone offset\n\n"
         "*Key Features:*\n"
-        "• Up to 1,500 messages per summary request\n"
+        "• Up to " + std::to_string(config_.max_messages_to_process) + " messages per summary request\n"
         "• Automatic visual scanning: converts photos, screenshots, and Telegram stickers into context\n"
         "• Strict factual grounding: traces reply chains and attributes direct quotes\n"
         "• Language-adaptive: automatically responds in the primary language of the chat\n"

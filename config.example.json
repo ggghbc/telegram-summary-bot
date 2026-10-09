@@ -7,8 +7,8 @@
   "llm_model": "gpt-4o-mini",
   "llm_temperature": 0.4,
   "llm_timeout_seconds": 120,
-  "max_messages_to_process": 1500,
+  "max_messages_to_process": 3000,
   "default_messages_to_process": 100,
-  "max_stored_messages_per_chat": 3000,
+  "max_stored_messages_per_chat": 5000,
   "db_path": "messages.db"
 }
