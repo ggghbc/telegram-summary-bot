@@ -34,7 +34,7 @@ std::string format_time_only(int64_t timestamp, int tz_offset) {
     gmtime_r(&t, &tm_buf);
 #endif
     std::ostringstream oss;
-    oss << std::put_time(&tm_buf, "%H:%M");
+    oss << std::put_time(&tm_buf, "%H:%M:%S");
     return oss.str();
 }
 
@@ -130,10 +130,11 @@ std::string SummaryGenerator::generate(
 
     user_prompt << "Generate a structured, strictly factual summary of this conversation according to your system instructions.\n"
                 << "Crucial guidelines:\n"
+                << "- STRICT CHRONOLOGY: The transcript is ordered from oldest to newest (top to bottom) with exact timestamps [HH:MM:SS]. Follow the exact sequence of events. Never swap or invert the timeline (e.g. do NOT use 'в завершение' / 'in conclusion' for messages or stickers that took place before later exchanges).\n"
                 << "- Ground every statement strictly in the transcript above; do NOT invent or assume unmentioned facts or drama.\n"
                 << "- Accurately follow reply chains to preserve conversational context.\n"
-                << "- In Key Topics & Discussion, cite participants and use authentic direct quotes (\"...\") for all key points.\n"
-                << "- If images/photos are described in the transcript (e.g. [Photo: ...]), reflect their context accurately.\n"
+                << "- In Key Topics & Discussion, cite participants and use authentic direct quotes (\"...\") in their true chronological order.\n"
+                << "- If images/photos/stickers are described in the transcript (e.g. [Photo: ...], [Sticker: ...]), place them at their exact chronological moment in the discussion.\n"
                 << "- Write in the primary language of the conversation, strictly no emojis, no decisions section, and no open questions.";
 
     std::string summary = llm_client_.generate_summary(config_.system_prompt, user_prompt.str(), out_error);
