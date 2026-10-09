@@ -208,9 +208,7 @@ bool BotApp::parse_bot_invocation(
     bool starts_with_cmd = (text_lower.rfind("/summary", 0) == 0 ||
                             text_lower.rfind("/start", 0) == 0 ||
                             text_lower.rfind("/help", 0) == 0 ||
-                            text_lower.rfind("/timezone", 0) == 0 ||
-                            text_lower.rfind("/photo", 0) == 0 ||
-                            text_lower.rfind("/image", 0) == 0);
+                            text_lower.rfind("/timezone", 0) == 0);
 
     bool replied_to_bot = (msg.reply_to_message &&
                            msg.reply_to_message->from.id == bot_->bot_user().id);
@@ -250,9 +248,8 @@ bool BotApp::parse_bot_invocation(
 
         std::string token_clean_lower = to_lower(token_clean);
 
-        // Skip bot mention and commands
-        if (token_clean_lower == mention || token_clean_lower.rfind("/summary", 0) == 0 ||
-            token_clean_lower.rfind("/photo", 0) == 0 || token_clean_lower.rfind("/image", 0) == 0) {
+        // Skip bot mention and /summary command
+        if (token_clean_lower == mention || token_clean_lower.rfind("/summary", 0) == 0) {
             continue;
         }
 
@@ -383,52 +380,6 @@ void BotApp::handle_message(const TelegramMessage& msg) {
             return;
         }
 
-        // Check for direct image query or image inspection
-        std::string target_photo_id;
-        if (!msg.photo_file_id.empty()) {
-            target_photo_id = msg.photo_file_id;
-        } else if (msg.reply_to_message && !msg.reply_to_message->photo_file_id.empty()) {
-            target_photo_id = msg.reply_to_message->photo_file_id;
-        }
-
-        std::string text_lower = to_lower(effective_text);
-        bool is_explicit_photo_cmd = (text_lower.rfind("/photo", 0) == 0 || text_lower.rfind("/image", 0) == 0);
-        bool has_explicit_scope = (req.type == QueryType::TimeWindow ||
-                                  (req.type == QueryType::Count && req.count != config_.default_messages_to_process));
-
-        bool is_image_query = is_explicit_photo_cmd || (!target_photo_id.empty() && !has_explicit_scope);
-
-        if (is_image_query) {
-            if (target_photo_id.empty()) {
-                bot_->send_message(
-                    msg.chat.id,
-                    "No image found. Please send an image or reply to an existing image.",
-                    msg.message_id,
-                    "",
-                    msg.thread_id
-                );
-                return;
-            }
-
-            // Extract prompt text without bot mention or /photo /image
-            std::string prompt_text = effective_text;
-            std::string bot_mention = "@" + to_lower(bot_->bot_user().username);
-            size_t mpos = to_lower(prompt_text).find(bot_mention);
-            if (mpos != std::string::npos) {
-                prompt_text.erase(mpos, bot_mention.length());
-            }
-            if (to_lower(prompt_text).rfind("/photo", 0) == 0) {
-                prompt_text = prompt_text.substr(6);
-            } else if (to_lower(prompt_text).rfind("/image", 0) == 0) {
-                prompt_text = prompt_text.substr(6);
-            }
-            while (!prompt_text.empty() && (prompt_text.front() == ' ' || prompt_text.front() == '\t')) prompt_text.erase(0, 1);
-            while (!prompt_text.empty() && (prompt_text.back() == ' ' || prompt_text.back() == '\t')) prompt_text.pop_back();
-
-            execute_image_analysis_async(msg.chat.id, msg.thread_id, msg.message_id, target_photo_id, prompt_text);
-            return;
-        }
-
         // Admin-only check
         if (config_.admin_only_summaries && !bot_->is_chat_admin(msg.chat.id, msg.from.id)) {
             bot_->send_message(
@@ -527,19 +478,16 @@ void BotApp::handle_message(const TelegramMessage& msg) {
 void BotApp::send_help(int64_t chat_id, int64_t thread_id, int64_t reply_to_id) {
     std::string bot_name = bot_->bot_user().username;
     std::string help_text =
-        "*Telegram Conversation Summary & Vision Bot*\n\n"
+        "*Telegram Conversation Summary Bot*\n\n"
         "*Summary Options:*\n"
         "• `@" + bot_name + " 500` — summarize the last 500 messages\n"
         "• `@" + bot_name + " 24h` — summarize the last 24 hours\n"
         "• `@" + bot_name + " today` — summarize all discussions from today\n"
         "• `@" + bot_name + " 300 about release` — summarize messages with topic focus\n"
         "• `/timezone +3` — set chat timezone offset\n\n"
-        "*Image Analysis:*\n"
-        "• Send a photo mentioning `@" + bot_name + "` (with an optional question)\n"
-        "• Reply to any photo with `@" + bot_name + "` or `/photo` / `/image`\n"
-        "• The bot also automatically analyzes images in chat history for summaries\n\n"
         "*Limits & Features:*\n"
         "• Hard limit: 1500 messages per request\n"
+        "• Auto-scans images in conversation history to provide visual context\n"
         "• Strict factual grounding and reply-chain tracing\n"
         "• Automatically scopes to Forum Topics / Threads if invoked inside one\n"
         "• Strictly emoji-free and language-adaptive output\n\n"
@@ -650,108 +598,27 @@ void BotApp::analyze_and_update_image_async(
             else if (file_path.ends_with(".webp")) mime_type = "image/webp";
 
             std::string err;
-            std::string prompt = "Describe what is shown in this image in 1-2 concise sentences for chat conversation context. If there is readable text, code, or an error message, mention the key text. Avoid conversational filler and emojis.";
+            std::string prompt = "Describe what is shown in this image in one concise phrase or short sentence (e.g. 'скриншот с ошибкой компиляции', 'фото кота', 'мем про работу'). Do not include conversational filler or emojis.";
             std::string description = llm_->describe_image(image_bytes, mime_type, prompt, err);
 
             if (!description.empty()) {
                 std::replace(description.begin(), description.end(), '\n', ' ');
                 while (!description.empty() && description.back() == ' ') description.pop_back();
-                if (description.size() > 250) {
-                    description = description.substr(0, 245) + "...";
+                if (description.size() > 200) {
+                    description = description.substr(0, 195) + "...";
                 }
 
                 std::string updated_text = "[Photo: " + description + "]";
                 if (!caption.empty()) {
-                    updated_text += " " + caption;
+                    updated_text += " (reaction: \"" + caption + "\")";
                 }
 
                 db_.update_message_text(chat_id, message_id, updated_text);
-                std::cout << "[BotApp] Enriched photo message " << message_id 
-                          << " with visual description: " << description << std::endl;
+                std::cout << "[BotApp] Auto-scanned photo " << message_id 
+                          << " into context: " << description << std::endl;
             }
         } catch (const std::exception& e) {
             std::cerr << "[BotApp] Error during background image analysis: " << e.what() << std::endl;
-        }
-    }).detach();
-}
-
-void BotApp::execute_image_analysis_async(
-    int64_t chat_id,
-    int64_t thread_id,
-    int64_t request_msg_id,
-    const std::string& file_id,
-    const std::string& user_prompt
-) {
-    std::thread([this, chat_id, thread_id, request_msg_id, file_id, user_prompt]() {
-        try {
-            int64_t status_msg_id = bot_->send_message(
-                chat_id,
-                "Analyzing image...",
-                request_msg_id,
-                "Markdown",
-                thread_id
-            );
-
-            std::atomic<bool> is_analyzing{true};
-            std::jthread typing_thread([this, chat_id, thread_id, &is_analyzing](std::stop_token st) {
-                while (!st.stop_requested() && is_analyzing.load()) {
-                    bot_->send_chat_action(chat_id, "typing", thread_id);
-                    for (int i = 0; i < 40 && !st.stop_requested() && is_analyzing.load(); ++i) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                    }
-                }
-            });
-
-            std::string file_path = bot_->get_file_path(file_id);
-            if (file_path.empty()) {
-                is_analyzing.store(false);
-                typing_thread.request_stop();
-                if (status_msg_id != 0) bot_->delete_message(chat_id, status_msg_id);
-                bot_->send_message(chat_id, "Error: Unable to retrieve image file from Telegram.", request_msg_id, "", thread_id);
-                return;
-            }
-
-            std::string image_bytes = bot_->download_file(file_path);
-            if (image_bytes.empty()) {
-                is_analyzing.store(false);
-                typing_thread.request_stop();
-                if (status_msg_id != 0) bot_->delete_message(chat_id, status_msg_id);
-                bot_->send_message(chat_id, "Error: Failed to download image from Telegram.", request_msg_id, "", thread_id);
-                return;
-            }
-
-            std::string mime_type = "image/jpeg";
-            if (file_path.ends_with(".png")) mime_type = "image/png";
-            else if (file_path.ends_with(".webp")) mime_type = "image/webp";
-
-            std::ostringstream prompt_oss;
-            prompt_oss << "Analyze this image in detail and answer the user's request.\n";
-            if (!user_prompt.empty()) {
-                prompt_oss << "User request: \"" << user_prompt << "\"\n";
-            } else {
-                prompt_oss << "Provide a comprehensive, clear explanation of what is shown. Transcribe any readable text, code, diagrams, or errors if present.\n";
-            }
-            prompt_oss << "Rules:\n"
-                       << "- Reply in the primary language of the user's inquiry (or the chat language).\n"
-                       << "- Strictly NO emojis.\n"
-                       << "- Provide accurate, clear facts without hallucinating.";
-
-            std::string err;
-            std::string analysis = llm_->describe_image(image_bytes, mime_type, prompt_oss.str(), err);
-
-            is_analyzing.store(false);
-            typing_thread.request_stop();
-            if (status_msg_id != 0) bot_->delete_message(chat_id, status_msg_id);
-
-            if (analysis.empty()) {
-                bot_->send_message(chat_id, "Error analyzing image: " + err, request_msg_id, "", thread_id);
-                return;
-            }
-
-            std::string reply = "*Image Analysis*\n\n" + analysis;
-            bot_->send_message(chat_id, reply, request_msg_id, "Markdown", thread_id);
-        } catch (const std::exception& e) {
-            std::cerr << "[BotApp] Exception in execute_image_analysis_async: " << e.what() << std::endl;
         }
     }).detach();
 }

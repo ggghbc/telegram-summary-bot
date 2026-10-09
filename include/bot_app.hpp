@@ -93,14 +93,6 @@ private:
         const std::string& caption
     );
 
-    void execute_image_analysis_async(
-        int64_t chat_id,
-        int64_t thread_id,
-        int64_t request_msg_id,
-        const std::string& file_id,
-        const std::string& user_prompt
-    );
-
     void send_help(int64_t chat_id, int64_t thread_id, int64_t reply_to_id);
 };
 

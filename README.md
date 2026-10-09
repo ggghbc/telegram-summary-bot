@@ -7,7 +7,7 @@ A high-performance Telegram bot that maintains a persistent local chat history a
 ## Highlights & Architecture
 
 - **Performance**: Built with modern C++20.
-- **Multimodal Vision & Image Analysis**: Analyzes photos, screenshots, diagrams, and error traces using multimodal LLMs (Gemini / OpenAI Vision). Automatically enriches chat history with concise image descriptions so summaries understand visual context without hallucination.
+- **Automatic Visual Context Scanning**: Automatically auto-scans photos, screenshots, and diagrams in chat conversation into concise context notes (e.g. *Alice* shared an image showing *a build error* and commented: "Why won't this compile?"). Highly token-efficient (stores lightweight 1-sentence text notes; zero multimodal vision tokens during summary generation) and easily toggleable via `ENABLE_IMAGE_ANALYSIS=true/false`.
 - **Strict Factual Grounding**: Follows reply chains with quoted snippets, attributes statements with authentic participant quotes (`"..."`), and prohibits psychologizing or dramatic extrapolations.
 - **SQLite 3 with WAL Mode**: Embedded SQLite 3 database operating in Write-Ahead Logging (`WAL`) mode. Message insertion takes `< 0.1 ms`.
 - **Universal LLM Compatibility**: Connects to any OpenAI-compatible API, including Google Gemini (`gemini-3.1-flash-lite`, `gemini-3-flash-preview`), OpenAI (`gpt-4o-mini`), Groq (`llama-3.3-70b-versatile`), DeepSeek (`deepseek-chat`), OpenRouter, and local Ollama or vLLM instances.
@@ -17,7 +17,7 @@ A high-performance Telegram bot that maintains a persistent local chat history a
 
 ## Group Chat Usage
 
-The bot responds to mentions and commands with counts, time intervals, topic filters, or images (hard limit: **1,500** messages):
+The bot responds to mentions and commands with counts, time intervals, or topic filters (hard limit: **1,500** messages):
 
 | Command                            | Description                                                                            |
 | ---------------------------------- | -------------------------------------------------------------------------------------- |
@@ -26,9 +26,6 @@ The bot responds to mentions and commands with counts, time intervals, topic fil
 | `@bot_username today`              | Summarize all messages since midnight today in chat timezone                           |
 | `@bot_username 300 about release`  | Summarize messages focusing on a specific topic                                        |
 | `@bot_username 24h about database` | Time-window summary with topic focus                                                   |
-| `@bot_username` (reply to photo)   | Analyze and explain the image in detail                                                |
-| `[Photo] + @bot_username <prompt>` | Inspect attached photo and answer user's question                                      |
-| `/photo` or `/image` (on photo)    | Explicit command to analyze an image                                                   |
 | `/timezone +3` or `/timezone MSK`  | Set or inspect custom timezone offset for the chat                                     |
 | `@bot_username`                    | Summarize with default count (100 messages)                                            |
 | `/summary 200`                     | Slash command alternative                                                              |
