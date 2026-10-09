@@ -118,7 +118,7 @@ void test_transcript_formatting() {
 
     std::string transcript = gen.build_transcript(msgs);
     assert(transcript.find("Alice (@alice_dev)") != std::string::npos);
-    assert(transcript.find("(в ответ Alice)") != std::string::npos);
+    assert(transcript.find("(in reply to Alice)") != std::string::npos);
     assert(transcript.find("Hello team, let's discuss release 2.0.") != std::string::npos);
     assert(transcript.find("I finished the tests, looks ready.") != std::string::npos);
 

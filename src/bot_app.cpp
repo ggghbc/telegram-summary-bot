@@ -196,8 +196,8 @@ void BotApp::handle_message(const TelegramMessage& msg) {
         if (n <= 0) {
             bot_->send_message(
                 msg.chat.id,
-                "Количество сообщений должно быть больше 0 (максимум 1500).\n"
-                "Пример использования: @" + bot_->bot_user().username + " 300",
+                "The message count must be greater than 0 (max 1500).\n"
+                "Example usage: @" + bot_->bot_user().username + " 300",
                 msg.message_id
             );
             return;
@@ -235,21 +235,21 @@ void BotApp::handle_message(const TelegramMessage& msg) {
 void BotApp::send_help(int64_t chat_id, int64_t reply_to_id) {
     std::string bot_name = bot_->bot_user().username;
     std::string help_text =
-        "*Бот для создания кратких сводок (самари) бесед.*\n\n"
-        "*Как пользоваться:*\n"
-        "• `@" + bot_name + " 500` — сделать самари последних 500 сообщений\n"
-        "• `@" + bot_name + " 100` — сделать самари последних 100 сообщений\n"
-        "• `/summary 200` — альтернативная команда со счетчиком сообщений\n"
-        "• `@" + bot_name + "` — самари с дефолтным числом (" +
-        std::to_string(config_.default_messages_to_process) + " сообщений)\n\n"
-        "*Ограничения:*\n"
-        "• Максимальное число сообщений для анализа: *1500*\n\n"
-        "*Важная настройка для работы в группах:*\n"
-        "Telegram-боты по умолчанию видят только команды. Чтобы бот читал все сообщения чата и мог делать по ним сводку:\n"
-        "1. Откройте @BotFather\n"
-        "2. Вызовите команду `/setprivacy`\n"
-        "3. Выберите этого бота и нажмите *Disable*\n"
-        "*(либо просто назначьте бота администратором группы)*.";
+        "*Telegram Conversation Summary Bot*\n\n"
+        "*How to use:*\n"
+        "• `@" + bot_name + " 500` — summarize the last 500 messages\n"
+        "• `@" + bot_name + " 100` — summarize the last 100 messages\n"
+        "• `/summary 200` — slash command alternative\n"
+        "• `@" + bot_name + "` — summarize with default count (" +
+        std::to_string(config_.default_messages_to_process) + " messages)\n\n"
+        "*Limits:*\n"
+        "• Maximum messages to analyze: *1500*\n\n"
+        "*Important Group Setup:*\n"
+        "Telegram bots only receive commands by default. To let the bot record chat messages:\n"
+        "1. Open @BotFather\n"
+        "2. Send `/setprivacy`\n"
+        "3. Choose this bot and click *Disable*\n"
+        "*(or simply promote the bot to Group Administrator)*.";
 
     bot_->send_message(chat_id, help_text, reply_to_id, "Markdown");
 }
@@ -265,7 +265,7 @@ void BotApp::execute_summary_async(
             int64_t effective_count = std::min(count, config_.max_messages_to_process);
 
             // Send initial progress status message without emoji
-            std::string status_text = "Сбор последних " + std::to_string(effective_count) + " сообщений и составление самари...";
+            std::string status_text = "Collecting the last " + std::to_string(effective_count) + " messages and generating summary...";
             int64_t status_msg_id = bot_->send_message(chat_id, status_text, request_msg_id, "Markdown");
 
             // Start typing indicator loop using std::jthread
@@ -288,12 +288,12 @@ void BotApp::execute_summary_async(
                 if (status_msg_id != 0) bot_->delete_message(chat_id, status_msg_id);
 
                 std::string empty_msg =
-                    "В истории этого чата пока нет сохраненных сообщений.\n\n"
-                    "Чтобы бот мог читать историю беседы:\n"
-                    "1. Убедитесь, что бот добавлен в чат.\n"
-                    "2. Отключите Privacy Mode в @BotFather (`/setprivacy` -> *Disable*) "
-                    "или назначьте бота администратором группы.\n"
-                    "3. Отправляйте сообщения в чат, и бот будет сохранять их для последующих самари!";
+                    "No messages found yet in this chat history.\n\n"
+                    "To enable the bot to record conversation history:\n"
+                    "1. Ensure the bot is added to the chat.\n"
+                    "2. Disable Privacy Mode in @BotFather (`/setprivacy` -> *Disable*) "
+                    "or promote the bot to Group Administrator.\n"
+                    "3. Start chatting, and the bot will record incoming messages for future summaries!";
                 bot_->send_message(chat_id, empty_msg, request_msg_id, "Markdown");
                 return;
             }
@@ -312,7 +312,7 @@ void BotApp::execute_summary_async(
             if (!summary.empty()) {
                 bot_->send_message(chat_id, summary, request_msg_id, "Markdown");
             } else {
-                std::string err_msg = "Ошибка при генерации самари: " + error;
+                std::string err_msg = "Error generating summary: " + error;
                 bot_->send_message(chat_id, err_msg, request_msg_id, "");
             }
         } catch (const std::exception& e) {

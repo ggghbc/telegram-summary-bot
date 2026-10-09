@@ -19,7 +19,7 @@ std::string SummaryGenerator::format_timestamp(int64_t timestamp) {
     gmtime_r(&t, &tm_buf);
 #endif
     std::ostringstream oss;
-    oss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M МСК");
+    oss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M MSK");
     return oss.str();
 }
 
@@ -42,7 +42,7 @@ std::string SummaryGenerator::build_transcript(const std::vector<ChatMessage>& m
 
         std::string reply_str;
         if (!msg.reply_to_user.empty()) {
-            reply_str = " (в ответ " + msg.reply_to_user + ")";
+            reply_str = " (in reply to " + msg.reply_to_user + ")";
         }
 
         // Limit individual message length in transcript to prevent spam blowout
@@ -62,7 +62,7 @@ std::string SummaryGenerator::generate(
     std::string& out_error
 ) {
     if (messages.empty()) {
-        out_error = "История сообщений для анализа пуста.";
+        out_error = "Message history for analysis is empty.";
         return "";
     }
 
@@ -72,10 +72,11 @@ std::string SummaryGenerator::generate(
     std::string transcript = build_transcript(messages);
 
     std::string user_content =
-        "История беседы из " + std::to_string(messages.size()) +
-        " сообщений (с " + start_time + " по " + end_time + "):\n\n" +
+        "Chat history containing " + std::to_string(messages.size()) +
+        " messages (from " + start_time + " to " + end_time + "):\n\n" +
         "```text\n" + transcript + "```\n\n" +
-        "Сделай емкую, живую выжимку этой беседы согласно системным инструкциям, строго без эмодзи и без блока открытых вопросов.";
+        "Generate a structured, lively summary of this conversation according to the system instructions.\n"
+        "Remember: output in the primary language used in the chat, strictly no emojis, and no open questions section.";
 
     std::string summary = llm_client_.generate_summary(config_.system_prompt, user_content, out_error);
     if (summary.empty()) {
@@ -83,13 +84,13 @@ std::string SummaryGenerator::generate(
     }
 
     std::ostringstream final_msg;
-    final_msg << "*Сводка последних " << messages.size() << " сообщений*\n"
-              << "Время: " << start_time << " — " << end_time << "\n";
+    final_msg << "*Summary of the last " << messages.size() << " messages*\n"
+              << "Time: " << start_time << " — " << end_time << "\n";
 
     if (requested_n > 1500) {
-        final_msg << "_(Лимит сообщений ограничен максимальным значением 1500)_\n";
+        final_msg << "_(Limit capped at 1500 messages)_\n";
     } else if (requested_n > static_cast<int64_t>(messages.size())) {
-        final_msg << "_(В истории чата было доступно " << messages.size() << " из " << requested_n << " запрошенных)_\n";
+        final_msg << "_(Available history contained " << messages.size() << " of " << requested_n << " requested messages)_\n";
     }
 
     final_msg << "\n" << summary;
