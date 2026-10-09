@@ -43,8 +43,13 @@ TelegramMessage parse_message(const json& j) {
     if (j.contains("caption") && j["caption"].is_string()) m.caption = j["caption"].get<std::string>();
 
     // Media type markers
-    if (j.contains("photo")) {
+    if (j.contains("photo") && j["photo"].is_array() && !j["photo"].empty()) {
         m.media_type = "Photo";
+        // Telegram photos are ordered from smallest to largest; pick high-resolution one
+        size_t idx = j["photo"].size() > 2 ? 2 : (j["photo"].size() - 1);
+        if (j["photo"][idx].contains("file_id") && j["photo"][idx]["file_id"].is_string()) {
+            m.photo_file_id = j["photo"][idx]["file_id"].get<std::string>();
+        }
     } else if (j.contains("voice")) {
         m.media_type = "Voice message";
     } else if (j.contains("video")) {
@@ -54,6 +59,10 @@ TelegramMessage parse_message(const json& j) {
     } else if (j.contains("document") && j["document"].is_object()) {
         std::string fname = j["document"].value("file_name", "");
         m.media_type = fname.empty() ? "Document" : "Document: " + fname;
+        std::string mime = j["document"].value("mime_type", "");
+        if (mime.rfind("image/", 0) == 0 && j["document"].contains("file_id") && j["document"]["file_id"].is_string()) {
+            m.photo_file_id = j["document"]["file_id"].get<std::string>();
+        }
     } else if (j.contains("audio")) {
         m.media_type = "Audio";
     } else if (j.contains("sticker")) {
@@ -339,6 +348,38 @@ bool TelegramBot::is_chat_admin(int64_t chat_id, int64_t user_id) {
     } catch (...) {}
 
     return false;
+}
+
+std::string TelegramBot::get_file_path(const std::string& file_id) {
+    if (file_id.empty()) return "";
+    std::string url = build_api_url("getFile") + "?file_id=" + file_id;
+    auto res = http_.get(url, {}, 15);
+    if (!res.is_success()) {
+        std::cerr << "[TelegramBot] getFile failed: " << res.status_code << " | " << res.error_message << std::endl;
+        return "";
+    }
+    try {
+        json j = json::parse(res.body);
+        if (j.value("ok", false) && j.contains("result") && j["result"].contains("file_path")) {
+            return j["result"]["file_path"].get<std::string>();
+        }
+    } catch (...) {}
+    return "";
+}
+
+std::string TelegramBot::download_file(const std::string& file_path) {
+    if (file_path.empty()) return "";
+    std::string base = base_url_;
+    while (!base.empty() && base.back() == '/') {
+        base.pop_back();
+    }
+    std::string url = base + "/file/bot" + token_ + "/" + file_path;
+    auto res = http_.get(url, {}, 30);
+    if (!res.is_success()) {
+        std::cerr << "[TelegramBot] download_file failed: " << res.status_code << " | " << res.error_message << std::endl;
+        return "";
+    }
+    return res.body;
 }
 
 } // namespace summarybot

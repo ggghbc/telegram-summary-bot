@@ -71,10 +71,13 @@ std::string SummaryGenerator::build_transcript(const std::vector<ChatMessage>& m
 
         std::string time_str = format_time_only(msg.timestamp, tz_offset);
 
-        // Compact sender format
+        // Detailed sender format (Name + @username if present)
         std::string sender;
         if (!msg.first_name.empty()) {
             sender = msg.first_name;
+            if (!msg.username.empty()) {
+                sender += " (@" + msg.username + ")";
+            }
         } else if (!msg.username.empty()) {
             sender = "@" + msg.username;
         } else {
@@ -83,7 +86,7 @@ std::string SummaryGenerator::build_transcript(const std::vector<ChatMessage>& m
 
         std::string reply_str;
         if (!msg.reply_to_user.empty()) {
-            reply_str = " (in reply to " + msg.reply_to_user + ")";
+            reply_str = " (replying to " + msg.reply_to_user + ")";
         }
 
         // Token saving: truncate massive text dumps (> 500 chars)
@@ -125,8 +128,13 @@ std::string SummaryGenerator::generate(
                     << topic_filter << "\". Prioritize discussion, statements, and quotes related to this topic.\n\n";
     }
 
-    user_prompt << "Generate a structured, lively summary of this conversation according to your system instructions.\n"
-                << "Remember: write in the primary language of the conversation, strictly no emojis, no decisions section, and no open questions.";
+    user_prompt << "Generate a structured, strictly factual summary of this conversation according to your system instructions.\n"
+                << "Crucial guidelines:\n"
+                << "- Ground every statement strictly in the transcript above; do NOT invent or assume unmentioned facts or drama.\n"
+                << "- Accurately follow reply chains to preserve conversational context.\n"
+                << "- In Key Topics & Discussion, cite participants and use authentic direct quotes (\"...\") for all key points.\n"
+                << "- If images/photos are described in the transcript (e.g. [Photo: ...]), reflect their context accurately.\n"
+                << "- Write in the primary language of the conversation, strictly no emojis, no decisions section, and no open questions.";
 
     std::string summary = llm_client_.generate_summary(config_.system_prompt, user_prompt.str(), out_error);
     if (summary.empty()) {

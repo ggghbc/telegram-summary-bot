@@ -32,6 +32,21 @@ public:
         std::string& out_error
     );
 
+    /**
+     * @brief Analyze an image using vision LLM capabilities.
+     * @param image_bytes Raw image file binary data.
+     * @param mime_type MIME type of the image (e.g. "image/jpeg", "image/png").
+     * @param prompt Prompt / instruction for image analysis.
+     * @param out_error Output error string if request fails.
+     * @return Generated image description or analysis.
+     */
+    std::string describe_image(
+        const std::string& image_bytes,
+        const std::string& mime_type,
+        const std::string& prompt,
+        std::string& out_error
+    );
+
 private:
     std::string api_key_;
     std::string api_url_;

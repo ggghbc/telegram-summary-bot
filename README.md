@@ -7,6 +7,8 @@ A high-performance Telegram bot that maintains a persistent local chat history a
 ## Highlights & Architecture
 
 - **Performance**: Built with modern C++20.
+- **Multimodal Vision & Image Analysis**: Analyzes photos, screenshots, diagrams, and error traces using multimodal LLMs (Gemini / OpenAI Vision). Automatically enriches chat history with concise image descriptions so summaries understand visual context without hallucination.
+- **Strict Factual Grounding**: Follows reply chains with quoted snippets, attributes statements with authentic participant quotes (`"..."`), and prohibits psychologizing or dramatic extrapolations.
 - **SQLite 3 with WAL Mode**: Embedded SQLite 3 database operating in Write-Ahead Logging (`WAL`) mode. Message insertion takes `< 0.1 ms`.
 - **Universal LLM Compatibility**: Connects to any OpenAI-compatible API, including Google Gemini (`gemini-3.1-flash-lite`, `gemini-3-flash-preview`), OpenAI (`gpt-4o-mini`), Groq (`llama-3.3-70b-versatile`), DeepSeek (`deepseek-chat`), OpenRouter, and local Ollama or vLLM instances.
 - **Language Matching**: The bot automatically detects the predominant language spoken in the conversation (Russian, English, Spanish, etc.) and generates the summary in that same language.
@@ -15,19 +17,22 @@ A high-performance Telegram bot that maintains a persistent local chat history a
 
 ## Group Chat Usage
 
-The bot responds to mentions and commands with counts, time intervals, or topic filters (hard limit: **1,500** messages):
+The bot responds to mentions and commands with counts, time intervals, topic filters, or images (hard limit: **1,500** messages):
 
-| Command                            | Description                                                                            |
-| ---------------------------------- | -------------------------------------------------------------------------------------- |
-| `@bot_username 500`                | Summarize the last 500 messages                                                        |
-| `@bot_username 24h`                | Summarize all messages from the last 24 hours (also supports `12h`, `2h`, `30m`, `1d`) |
-| `@bot_username today`              | Summarize all messages since midnight today in chat timezone                           |
-| `@bot_username 300 about release`  | Summarize messages focusing on a specific topic                                        |
-| `@bot_username 24h about database` | Time-window summary with topic focus                                                   |
-| `/timezone +3` or `/timezone MSK`  | Set or inspect custom timezone offset for the chat                                     |
-| `@bot_username`                    | Summarize with default count (100 messages)                                            |
-| `/summary 200`                     | Slash command alternative                                                              |
-| `/help` or `@bot_username help`    | Display help and usage instructions                                                    |
+| Command                             | Description                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `@bot_username 500`                 | Summarize the last 500 messages                                                        |
+| `@bot_username 24h`                 | Summarize all messages from the last 24 hours (also supports `12h`, `2h`, `30m`, `1d`) |
+| `@bot_username today`               | Summarize all messages since midnight today in chat timezone                           |
+| `@bot_username 300 about release`   | Summarize messages focusing on a specific topic                                        |
+| `@bot_username 24h about database`  | Time-window summary with topic focus                                                   |
+| `@bot_username` (reply to photo)    | Analyze and explain the image in detail                                                |
+| `[Photo] + @bot_username <prompt>`  | Inspect attached photo and answer user's question                                       |
+| `/photo` or `/image` (on photo)     | Explicit command to analyze an image                                                   |
+| `/timezone +3` or `/timezone MSK`   | Set or inspect custom timezone offset for the chat                                     |
+| `@bot_username`                     | Summarize with default count (100 messages)                                            |
+| `/summary 200`                      | Slash command alternative                                                              |
+| `/help` or `@bot_username help`     | Display help and usage instructions                                                    |
 
 > **Forum Topics / Threads:** When invoked inside a Telegram Topic / Thread, the bot automatically isolates and summarizes messages exclusively within that topic.
 
@@ -86,7 +91,7 @@ Create a `.env` file from the provided template:
 
 ```bash
 cp .env.example .env
-nano .env
+vim .env # 
 ```
 
 Configure your credentials:

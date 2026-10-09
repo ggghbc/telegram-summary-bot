@@ -83,6 +83,10 @@ void test_database() {
     int64_t after_prune = db.count_messages(chat_id, 0);
     assert(after_prune == 1000);
     (void)after_prune;
+    // Test update_message_text (for image analysis enrichment)
+    assert(db.update_message_text(chat_id, 2000, "Updated photo message text"));
+    auto updated_msgs = db.get_last_messages(chat_id, 0, 1);
+    assert(!updated_msgs.empty() && updated_msgs.back().text == "Updated photo message text");
 
     db.close();
     std::filesystem::remove(test_db);
@@ -139,7 +143,7 @@ void test_transcript_formatting() {
 
     std::string transcript = gen.build_transcript(msgs, 3);
     assert(transcript.find("Alice") != std::string::npos);
-    assert(transcript.find("(in reply to Alice)") != std::string::npos);
+    assert(transcript.find("(replying to Alice)") != std::string::npos);
     assert(transcript.find("Hello team, let's discuss release 2.0.") != std::string::npos);
     assert(transcript.find("I finished the tests, looks ready.") != std::string::npos);
 

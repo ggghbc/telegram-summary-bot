@@ -191,6 +191,25 @@ bool Database::save_message(const ChatMessage& msg) {
     return rc == SQLITE_DONE;
 }
 
+bool Database::update_message_text(int64_t chat_id, int64_t message_id, const std::string& new_text) {
+    std::lock_guard<std::mutex> lock(db_mutex_);
+    if (!db_) return false;
+
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql = "UPDATE messages SET text = ? WHERE chat_id = ? AND message_id = ?;";
+    if (sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, new_text.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt, 2, chat_id);
+    sqlite3_bind_int64(stmt, 3, message_id);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return rc == SQLITE_DONE;
+}
+
 static ChatMessage parse_row(sqlite3_stmt* stmt) {
     ChatMessage msg;
     msg.id = sqlite3_column_int64(stmt, 0);

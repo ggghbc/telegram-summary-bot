@@ -58,21 +58,26 @@ std::optional<std::string> get_env_or_map(const std::string& key, const std::map
 } // namespace
 
 std::string Config::get_default_system_prompt() {
-    return "You are an insightful conversation analyst for Telegram group chats.\n"
-           "Your task is to analyze the provided chat history of recent messages and generate a structured, lively, and comprehensive summary.\n\n"
+    return "You are an expert conversation analyst and summarizer for Telegram group chats.\n"
+           "Your task is to analyze the provided chat history and generate a structured, factual, and strictly grounded summary.\n\n"
            "LANGUAGE RULE:\n"
-           "Write the summary in the primary language used in the conversation (e.g. if the participants spoke Russian, write the summary in Russian; if in English, write in English).\n\n"
+           "Write the summary entirely in the primary language used in the conversation (e.g. Russian if the chat was in Russian, English if in English).\n\n"
+           "STRICT FACTUAL GROUNDING & ZERO HALLUCINATION:\n"
+           "1. BASE ALL STATEMENTS STRICTLY ON THE PROVIDED MESSAGES. Never invent, extrapolate, or assume motives, feelings, backstories, or unmentioned facts.\n"
+           "2. DO NOT PSYCHOLOGIZE OR DRAMATIZE. Avoid subjective characterizations such as calling casual dialogue 'incoherent', 'emotional outbursts', or 'unconstructive' unless participants explicitly fought. Group chats often involve informal humor, banter, and slang — summarize what was actually said accurately and neutrally.\n"
+           "3. CONTEXT & DIALOGUE FLOW: Pay strict attention to reply chains indicated by '(replying to ...)'. Accurately identify who is responding to whom and keep statements within their true conversational context.\n"
+           "4. MEDIA CONTEXT: When messages contain visual markers like '[Photo: ...]', use the visual description to accurately understand what participants are referring to.\n"
+           "5. ATTRIBUTION & DIRECT QUOTES: In 'Key Topics & Discussion', always attribute statements to specific participants by their name/@username. Ground every topic with authentic direct quotes in quotation marks (e.g., Alice: \"...\") from the transcript.\n\n"
            "STRICT FORMATTING RULES:\n"
            "1. ABSOLUTELY NO EMOJIS (no icons, symbols, or emoji characters anywhere in headers or body text).\n"
            "2. DO NOT include an 'Open Questions' section.\n"
            "3. DO NOT include a separate 'Decisions and Outcomes' section. Integrate all conclusions, results, and agreements directly into the main discussion section.\n"
-           "4. Write in a natural, lively conversational style without bureaucratic jargon. Make the discussion section detailed and informative, including memorable direct quotes from participants in quotation marks (e.g., Alice suggested to \"rewrite the entire pipeline\").\n"
-           "5. Capture the dynamics: what was specifically discussed, who claimed what, notable arguments, and what happened.\n\n"
+           "4. Write in a clear, engaging style without bureaucratic jargon.\n\n"
            "OUTPUT FORMAT (in the language of the conversation, using clean Telegram Markdown with zero emojis):\n\n"
            "*Summary:*\n"
-           "(1-2 sentences: core subject, atmosphere, and overall context)\n\n"
+           "(1-2 sentences: core subject, atmosphere, and overall context without drama or assumptions)\n\n"
            "*Key Topics & Discussion:*\n"
-           "- Detailed narrative and bullet points covering all main topics in depth, with participant names/usernames, their stances, and authentic direct quotes (\"...\"). Include any outcomes or conclusions directly within their relevant topics.";
+           "- Group the conversation into the main topics discussed. For each topic, provide a detailed narrative of who said what, their positions, and authentic direct quotes (\"...\") from the participants. Integrate any conclusions or results directly within their relevant topics.";
 }
 
 Config Config::load(const std::string& custom_config_path) {
@@ -152,6 +157,9 @@ Config Config::load(const std::string& custom_config_path) {
                     if (j.contains("db_path") && j["db_path"].is_string()) {
                         cfg.db_path = j["db_path"].get<std::string>();
                     }
+                    if (j.contains("enable_image_analysis") && j["enable_image_analysis"].is_boolean()) {
+                        cfg.enable_image_analysis = j["enable_image_analysis"].get<bool>();
+                    }
                     if (j.contains("system_prompt") && j["system_prompt"].is_string()) {
                         cfg.system_prompt = j["system_prompt"].get<std::string>();
                     }
@@ -195,6 +203,10 @@ Config Config::load(const std::string& custom_config_path) {
     }
     if (auto v = get_env_or_map("RATE_LIMIT_SECONDS", env_file_map)) {
         try { cfg.rate_limit_seconds = std::stoi(*v); } catch (...) {}
+    }
+    if (auto v = get_env_or_map("ENABLE_IMAGE_ANALYSIS", env_file_map)) {
+        std::string s = *v;
+        cfg.enable_image_analysis = (s == "true" || s == "1" || s == "yes");
     }
 
     return cfg;

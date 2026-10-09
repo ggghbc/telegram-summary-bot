@@ -27,6 +27,7 @@ struct Config {
 
     bool admin_only_summaries = false;
     int rate_limit_seconds = 30; // Cooldown between summary requests per chat
+    bool enable_image_analysis = true; // Use vision LLM to analyze photos in chat context
 
     std::string db_path = "messages.db";
     std::string system_prompt;

@@ -41,6 +41,7 @@ struct TelegramMessage {
     std::string text;
     std::string caption;
     std::string media_type; // e.g. "photo", "voice", "document", etc.
+    std::string photo_file_id; // Telegram file_id if message contains a photo or image
     std::shared_ptr<TelegramMessage> reply_to_message;
 
     std::string get_effective_text() const {
@@ -121,6 +122,16 @@ public:
      * @brief Check whether a specific user is a creator or administrator of the chat.
      */
     bool is_chat_admin(int64_t chat_id, int64_t user_id);
+
+    /**
+     * @brief Get file_path for a Telegram file_id using getFile API.
+     */
+    std::string get_file_path(const std::string& file_id);
+
+    /**
+     * @brief Download binary file contents for a given file_path.
+     */
+    std::string download_file(const std::string& file_path);
 
     /**
      * @brief Split long text into chunks on clean, UTF-8 safe boundaries.

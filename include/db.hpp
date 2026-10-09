@@ -62,6 +62,11 @@ public:
     bool save_message(const ChatMessage& msg);
 
     /**
+     * @brief Update the text content of an existing stored message (e.g. after image analysis).
+     */
+    bool update_message_text(int64_t chat_id, int64_t message_id, const std::string& new_text);
+
+    /**
      * @brief Fetch up to `limit` most recent messages for a given chat and thread,
      *        returned in chronological order (oldest to newest).
      */
