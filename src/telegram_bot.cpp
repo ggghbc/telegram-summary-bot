@@ -2,6 +2,8 @@
 #include <nlohmann/json.hpp>
 #include <iostream>
 #include <algorithm>
+#include <thread>
+#include <chrono>
 
 namespace summarybot {
 
@@ -140,6 +142,7 @@ std::vector<TelegramUpdate> TelegramBot::get_updates(int64_t offset, int timeout
     if (!res.is_success()) {
         if (res.status_code != -1) {
             std::cerr << "[TelegramBot] getUpdates failed: " << res.status_code << " | " << res.body << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(2));
         }
         return updates;
     }
