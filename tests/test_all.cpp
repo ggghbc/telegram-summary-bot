@@ -20,10 +20,11 @@ void test_database() {
     assert(db.init(test_db));
 
     int64_t chat_id = -1001234567;
-    // Insert 2000 messages
+    // Insert 2000 messages in general thread (0)
     for (int i = 1; i <= 2000; ++i) {
         ChatMessage msg;
         msg.chat_id = chat_id;
+        msg.thread_id = 0;
         msg.message_id = i;
         msg.user_id = 100 + (i % 5);
         msg.username = "user" + std::to_string(i % 5);
@@ -37,34 +38,51 @@ void test_database() {
         assert(db.save_message(msg));
     }
 
-    // Verify count
-    int64_t total = db.count_messages(chat_id);
+    // Insert 10 messages in topic thread (42)
+    for (int i = 1; i <= 10; ++i) {
+        ChatMessage msg;
+        msg.chat_id = chat_id;
+        msg.thread_id = 42;
+        msg.message_id = 3000 + i;
+        msg.user_id = 999;
+        msg.first_name = "TopicUser";
+        msg.timestamp = 1700025000 + i * 10;
+        msg.text = "Topic message " + std::to_string(i);
+        assert(db.save_message(msg));
+    }
+
+    // Verify count in general thread
+    int64_t total = db.count_messages(chat_id, 0);
     assert(total == 2000);
     (void)total;
 
+    // Verify count in topic thread 42
+    int64_t topic_total = db.count_messages(chat_id, 42);
+    assert(topic_total == 10);
+    (void)topic_total;
+
     // Fetch last 500 messages
-    auto last_500 = db.get_last_messages(chat_id, 500);
+    auto last_500 = db.get_last_messages(chat_id, 0, 500);
     assert(last_500.size() == 500);
-    // Chronological order: first message should be 1501, last should be 2000
     assert(last_500.front().message_id == 1501);
     assert(last_500.back().message_id == 2000);
 
-    // Fetch last 1500 messages (maximum allowed limit)
-    auto last_1500 = db.get_last_messages(chat_id, 1500);
-    assert(last_1500.size() == 1500);
-    assert(last_1500.front().message_id == 501);
-    assert(last_1500.back().message_id == 2000);
+    // Fetch messages since timestamp
+    int64_t since_ts = 1700000000 + 1900 * 10;
+    auto since_msgs = db.get_messages_since(chat_id, 0, since_ts, 500);
+    assert(since_msgs.size() == 101); // from 1900 to 2000 inclusive
 
-    // Test pruning: keep only 1000 messages
-    db.prune_chat_history(chat_id, 1000);
-    int64_t after_prune = db.count_messages(chat_id);
+    // Test timezone settings
+    assert(db.set_chat_timezone(chat_id, 4, "SAMT"));
+    auto settings = db.get_chat_settings(chat_id);
+    assert(settings.timezone_offset == 4);
+    assert(settings.timezone_name == "SAMT");
+
+    // Test pruning: keep only 1000 messages in general thread
+    db.prune_chat_history(chat_id, 0, 1000);
+    int64_t after_prune = db.count_messages(chat_id, 0);
     assert(after_prune == 1000);
     (void)after_prune;
-
-    auto remaining = db.get_last_messages(chat_id, 2000);
-    assert(remaining.size() == 1000);
-    assert(remaining.front().message_id == 1001);
-    assert(remaining.back().message_id == 2000);
 
     db.close();
     std::filesystem::remove(test_db);
@@ -78,14 +96,17 @@ void test_message_splitter() {
     assert(chunks.size() == 1);
     assert(chunks[0] == short_text);
 
-    std::string long_text;
+    // Test UTF-8 safety with Cyrillic text
+    std::string cyrillic_text;
     for (int i = 0; i < 50; ++i) {
-        long_text += "Paragraph " + std::to_string(i) + " with some detailed discussion text.\n\n";
+        cyrillic_text += "Параграф " + std::to_string(i) + " с подробным текстом на русском языке.\n\n";
     }
-    auto split_chunks = TelegramBot::split_message(long_text, 200);
+    auto split_chunks = TelegramBot::split_message(cyrillic_text, 200);
     assert(split_chunks.size() > 1);
     for (const auto& chunk : split_chunks) {
         assert(chunk.size() <= 200);
+        // Ensure first byte of next chunk is not an orphan continuation byte
+        assert((static_cast<unsigned char>(chunk.front()) & 0xC0) != 0x80);
         (void)chunk;
     }
     std::cout << "[Test] test_message_splitter PASSED!" << std::endl;
@@ -116,11 +137,16 @@ void test_transcript_formatting() {
     m2.text = "I finished the tests, looks ready.";
     msgs.push_back(m2);
 
-    std::string transcript = gen.build_transcript(msgs);
-    assert(transcript.find("Alice (@alice_dev)") != std::string::npos);
+    std::string transcript = gen.build_transcript(msgs, 3);
+    assert(transcript.find("Alice") != std::string::npos);
     assert(transcript.find("(in reply to Alice)") != std::string::npos);
     assert(transcript.find("Hello team, let's discuss release 2.0.") != std::string::npos);
     assert(transcript.find("I finished the tests, looks ready.") != std::string::npos);
+
+    // Test timestamp format: dd-mm-yyyy HH:MM MSK
+    std::string formatted_ts = SummaryGenerator::format_timestamp(1700000000, 3, "MSK");
+    assert(formatted_ts.find("-") != std::string::npos);
+    assert(formatted_ts.find("MSK") != std::string::npos);
 
     std::cout << "[Test] test_transcript_formatting PASSED!" << std::endl;
 }

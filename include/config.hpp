@@ -25,6 +25,9 @@ struct Config {
     int64_t default_messages_to_process = 100;
     int64_t max_stored_messages_per_chat = 3000;
 
+    bool admin_only_summaries = false;
+    int rate_limit_seconds = 30; // Cooldown between summary requests per chat
+
     std::string db_path = "messages.db";
     std::string system_prompt;
 

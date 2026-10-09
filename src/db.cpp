@@ -21,7 +21,7 @@ bool Database::init(const std::string& db_path) {
         return false;
     }
 
-    // Set performance PRAGMAs
+    // Set performance PRAGMAs for high throughput and safety
     char* err_msg = nullptr;
     const char* pragma_sql =
         "PRAGMA journal_mode = WAL;"
@@ -34,11 +34,12 @@ bool Database::init(const std::string& db_path) {
         sqlite3_free(err_msg);
     }
 
-    // Create table & indices
+    // Create schema
     const char* schema_sql =
         "CREATE TABLE IF NOT EXISTS messages ("
         "    id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "    chat_id INTEGER NOT NULL,"
+        "    thread_id INTEGER DEFAULT 0,"
         "    message_id INTEGER NOT NULL,"
         "    user_id INTEGER NOT NULL,"
         "    username TEXT,"
@@ -49,8 +50,13 @@ bool Database::init(const std::string& db_path) {
         "    text TEXT NOT NULL,"
         "    UNIQUE(chat_id, message_id)"
         ");"
-        "CREATE INDEX IF NOT EXISTS idx_messages_chat_msg ON messages(chat_id, message_id DESC);"
-        "CREATE INDEX IF NOT EXISTS idx_messages_chat_time ON messages(chat_id, timestamp);";
+        "CREATE TABLE IF NOT EXISTS chat_settings ("
+        "    chat_id INTEGER PRIMARY KEY,"
+        "    timezone_offset INTEGER DEFAULT 3,"
+        "    timezone_name TEXT DEFAULT 'MSK'"
+        ");"
+        "CREATE INDEX IF NOT EXISTS idx_messages_chat_thread_msg ON messages(chat_id, thread_id, message_id DESC);"
+        "CREATE INDEX IF NOT EXISTS idx_messages_chat_thread_time ON messages(chat_id, thread_id, timestamp DESC);";
 
     if (sqlite3_exec(db_, schema_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
         std::cerr << "[Database] Error creating schema: " << (err_msg ? err_msg : "unknown") << std::endl;
@@ -58,17 +64,21 @@ bool Database::init(const std::string& db_path) {
         return false;
     }
 
+    // Safe migration for existing databases: ensure thread_id column exists
+    sqlite3_exec(db_, "ALTER TABLE messages ADD COLUMN thread_id INTEGER DEFAULT 0;", nullptr, nullptr, nullptr);
+
     return prepare_statements();
 }
 
 bool Database::prepare_statements() {
     const char* sql_insert =
-        "INSERT INTO messages (chat_id, message_id, user_id, username, first_name, timestamp, reply_to_message_id, reply_to_user, text) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "INSERT INTO messages (chat_id, thread_id, message_id, user_id, username, first_name, timestamp, reply_to_message_id, reply_to_user, text) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
         "ON CONFLICT(chat_id, message_id) DO UPDATE SET "
         "text = excluded.text, "
         "username = excluded.username, "
-        "first_name = excluded.first_name;";
+        "first_name = excluded.first_name, "
+        "thread_id = excluded.thread_id;";
 
     if (sqlite3_prepare_v2(db_, sql_insert, -1, &stmt_insert_, nullptr) != SQLITE_OK) {
         std::cerr << "[Database] Failed to prepare insert stmt: " << sqlite3_errmsg(db_) << std::endl;
@@ -76,27 +86,55 @@ bool Database::prepare_statements() {
     }
 
     const char* sql_query_last =
-        "SELECT id, chat_id, message_id, user_id, username, first_name, timestamp, reply_to_message_id, reply_to_user, text "
-        "FROM messages WHERE chat_id = ? ORDER BY message_id DESC LIMIT ?;";
+        "SELECT id, chat_id, thread_id, message_id, user_id, username, first_name, timestamp, reply_to_message_id, reply_to_user, text "
+        "FROM messages WHERE chat_id = ? AND thread_id = ? ORDER BY message_id DESC LIMIT ?;";
 
     if (sqlite3_prepare_v2(db_, sql_query_last, -1, &stmt_query_last_, nullptr) != SQLITE_OK) {
         std::cerr << "[Database] Failed to prepare query last stmt: " << sqlite3_errmsg(db_) << std::endl;
         return false;
     }
 
-    const char* sql_count = "SELECT COUNT(*) FROM messages WHERE chat_id = ?;";
+    const char* sql_query_since =
+        "SELECT id, chat_id, thread_id, message_id, user_id, username, first_name, timestamp, reply_to_message_id, reply_to_user, text "
+        "FROM messages WHERE chat_id = ? AND thread_id = ? AND timestamp >= ? ORDER BY message_id DESC LIMIT ?;";
+
+    if (sqlite3_prepare_v2(db_, sql_query_since, -1, &stmt_query_since_, nullptr) != SQLITE_OK) {
+        std::cerr << "[Database] Failed to prepare query since stmt: " << sqlite3_errmsg(db_) << std::endl;
+        return false;
+    }
+
+    const char* sql_count = "SELECT COUNT(*) FROM messages WHERE chat_id = ? AND thread_id = ?;";
     if (sqlite3_prepare_v2(db_, sql_count, -1, &stmt_count_, nullptr) != SQLITE_OK) {
         std::cerr << "[Database] Failed to prepare count stmt: " << sqlite3_errmsg(db_) << std::endl;
         return false;
     }
 
     const char* sql_prune =
-        "DELETE FROM messages WHERE chat_id = ? AND message_id NOT IN ("
-        "    SELECT message_id FROM messages WHERE chat_id = ? ORDER BY message_id DESC LIMIT ?"
+        "DELETE FROM messages WHERE chat_id = ? AND thread_id = ? AND message_id NOT IN ("
+        "    SELECT message_id FROM messages WHERE chat_id = ? AND thread_id = ? ORDER BY message_id DESC LIMIT ?"
         ");";
 
     if (sqlite3_prepare_v2(db_, sql_prune, -1, &stmt_prune_, nullptr) != SQLITE_OK) {
         std::cerr << "[Database] Failed to prepare prune stmt: " << sqlite3_errmsg(db_) << std::endl;
+        return false;
+    }
+
+    const char* sql_set_settings =
+        "INSERT INTO chat_settings (chat_id, timezone_offset, timezone_name) VALUES (?, ?, ?) "
+        "ON CONFLICT(chat_id) DO UPDATE SET "
+        "timezone_offset = excluded.timezone_offset, "
+        "timezone_name = excluded.timezone_name;";
+
+    if (sqlite3_prepare_v2(db_, sql_set_settings, -1, &stmt_set_settings_, nullptr) != SQLITE_OK) {
+        std::cerr << "[Database] Failed to prepare set settings stmt: " << sqlite3_errmsg(db_) << std::endl;
+        return false;
+    }
+
+    const char* sql_get_settings =
+        "SELECT timezone_offset, timezone_name FROM chat_settings WHERE chat_id = ?;";
+
+    if (sqlite3_prepare_v2(db_, sql_get_settings, -1, &stmt_get_settings_, nullptr) != SQLITE_OK) {
+        std::cerr << "[Database] Failed to prepare get settings stmt: " << sqlite3_errmsg(db_) << std::endl;
         return false;
     }
 
@@ -106,8 +144,11 @@ bool Database::prepare_statements() {
 void Database::finalize_statements() {
     if (stmt_insert_) { sqlite3_finalize(stmt_insert_); stmt_insert_ = nullptr; }
     if (stmt_query_last_) { sqlite3_finalize(stmt_query_last_); stmt_query_last_ = nullptr; }
+    if (stmt_query_since_) { sqlite3_finalize(stmt_query_since_); stmt_query_since_ = nullptr; }
     if (stmt_count_) { sqlite3_finalize(stmt_count_); stmt_count_ = nullptr; }
     if (stmt_prune_) { sqlite3_finalize(stmt_prune_); stmt_prune_ = nullptr; }
+    if (stmt_set_settings_) { sqlite3_finalize(stmt_set_settings_); stmt_set_settings_ = nullptr; }
+    if (stmt_get_settings_) { sqlite3_finalize(stmt_get_settings_); stmt_get_settings_ = nullptr; }
 }
 
 void Database::close() {
@@ -127,59 +168,62 @@ bool Database::save_message(const ChatMessage& msg) {
     sqlite3_clear_bindings(stmt_insert_);
 
     sqlite3_bind_int64(stmt_insert_, 1, msg.chat_id);
-    sqlite3_bind_int64(stmt_insert_, 2, msg.message_id);
-    sqlite3_bind_int64(stmt_insert_, 3, msg.user_id);
-    sqlite3_bind_text(stmt_insert_, 4, msg.username.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt_insert_, 5, msg.first_name.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int64(stmt_insert_, 6, msg.timestamp);
-    sqlite3_bind_int64(stmt_insert_, 7, msg.reply_to_message_id);
-    sqlite3_bind_text(stmt_insert_, 8, msg.reply_to_user.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt_insert_, 9, msg.text.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt_insert_, 2, msg.thread_id);
+    sqlite3_bind_int64(stmt_insert_, 3, msg.message_id);
+    sqlite3_bind_int64(stmt_insert_, 4, msg.user_id);
+    sqlite3_bind_text(stmt_insert_, 5, msg.username.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt_insert_, 6, msg.first_name.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(stmt_insert_, 7, msg.timestamp);
+    sqlite3_bind_int64(stmt_insert_, 8, msg.reply_to_message_id);
+    sqlite3_bind_text(stmt_insert_, 9, msg.reply_to_user.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt_insert_, 10, msg.text.c_str(), -1, SQLITE_TRANSIENT);
 
     int rc = sqlite3_step(stmt_insert_);
-    if (rc != SQLITE_DONE) {
-        std::cerr << "[Database] Insert failed: " << sqlite3_errmsg(db_) << std::endl;
-        return false;
-    }
-    return true;
+    return rc == SQLITE_DONE;
 }
 
-std::vector<ChatMessage> Database::get_last_messages(int64_t chat_id, int64_t limit) {
+static ChatMessage parse_row(sqlite3_stmt* stmt) {
+    ChatMessage msg;
+    msg.id = sqlite3_column_int64(stmt, 0);
+    msg.chat_id = sqlite3_column_int64(stmt, 1);
+    msg.thread_id = sqlite3_column_int64(stmt, 2);
+    msg.message_id = sqlite3_column_int64(stmt, 3);
+    msg.user_id = sqlite3_column_int64(stmt, 4);
+
+    const unsigned char* u = sqlite3_column_text(stmt, 5);
+    if (u) msg.username = reinterpret_cast<const char*>(u);
+
+    const unsigned char* fn = sqlite3_column_text(stmt, 6);
+    if (fn) msg.first_name = reinterpret_cast<const char*>(fn);
+
+    msg.timestamp = sqlite3_column_int64(stmt, 7);
+    msg.reply_to_message_id = sqlite3_column_int64(stmt, 8);
+
+    const unsigned char* ru = sqlite3_column_text(stmt, 9);
+    if (ru) msg.reply_to_user = reinterpret_cast<const char*>(ru);
+
+    const unsigned char* tx = sqlite3_column_text(stmt, 10);
+    if (tx) msg.text = reinterpret_cast<const char*>(tx);
+
+    return msg;
+}
+
+std::vector<ChatMessage> Database::get_last_messages(int64_t chat_id, int64_t thread_id, int64_t limit) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     std::vector<ChatMessage> results;
     if (!db_ || !stmt_query_last_ || limit <= 0) return results;
 
-    results.reserve(static_cast<size_t>(limit));
+    results.reserve(static_cast<size_t>(std::min<int64_t>(limit, 1500)));
 
     sqlite3_reset(stmt_query_last_);
     sqlite3_clear_bindings(stmt_query_last_);
 
     sqlite3_bind_int64(stmt_query_last_, 1, chat_id);
-    sqlite3_bind_int64(stmt_query_last_, 2, limit);
+    sqlite3_bind_int64(stmt_query_last_, 2, thread_id);
+    sqlite3_bind_int64(stmt_query_last_, 3, limit);
 
     while (sqlite3_step(stmt_query_last_) == SQLITE_ROW) {
-        ChatMessage msg;
-        msg.id = sqlite3_column_int64(stmt_query_last_, 0);
-        msg.chat_id = sqlite3_column_int64(stmt_query_last_, 1);
-        msg.message_id = sqlite3_column_int64(stmt_query_last_, 2);
-        msg.user_id = sqlite3_column_int64(stmt_query_last_, 3);
-
-        const unsigned char* u = sqlite3_column_text(stmt_query_last_, 4);
-        if (u) msg.username = reinterpret_cast<const char*>(u);
-
-        const unsigned char* fn = sqlite3_column_text(stmt_query_last_, 5);
-        if (fn) msg.first_name = reinterpret_cast<const char*>(fn);
-
-        msg.timestamp = sqlite3_column_int64(stmt_query_last_, 6);
-        msg.reply_to_message_id = sqlite3_column_int64(stmt_query_last_, 7);
-
-        const unsigned char* ru = sqlite3_column_text(stmt_query_last_, 8);
-        if (ru) msg.reply_to_user = reinterpret_cast<const char*>(ru);
-
-        const unsigned char* tx = sqlite3_column_text(stmt_query_last_, 9);
-        if (tx) msg.text = reinterpret_cast<const char*>(tx);
-
-        results.push_back(std::move(msg));
+        results.push_back(parse_row(stmt_query_last_));
     }
 
     // Reverse to chronological order (oldest to newest)
@@ -187,13 +231,37 @@ std::vector<ChatMessage> Database::get_last_messages(int64_t chat_id, int64_t li
     return results;
 }
 
-int64_t Database::count_messages(int64_t chat_id) {
+std::vector<ChatMessage> Database::get_messages_since(int64_t chat_id, int64_t thread_id, int64_t since_timestamp, int64_t limit) {
+    std::lock_guard<std::mutex> lock(db_mutex_);
+    std::vector<ChatMessage> results;
+    if (!db_ || !stmt_query_since_ || limit <= 0) return results;
+
+    results.reserve(static_cast<size_t>(std::min<int64_t>(limit, 1500)));
+
+    sqlite3_reset(stmt_query_since_);
+    sqlite3_clear_bindings(stmt_query_since_);
+
+    sqlite3_bind_int64(stmt_query_since_, 1, chat_id);
+    sqlite3_bind_int64(stmt_query_since_, 2, thread_id);
+    sqlite3_bind_int64(stmt_query_since_, 3, since_timestamp);
+    sqlite3_bind_int64(stmt_query_since_, 4, limit);
+
+    while (sqlite3_step(stmt_query_since_) == SQLITE_ROW) {
+        results.push_back(parse_row(stmt_query_since_));
+    }
+
+    std::reverse(results.begin(), results.end());
+    return results;
+}
+
+int64_t Database::count_messages(int64_t chat_id, int64_t thread_id) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!db_ || !stmt_count_) return 0;
 
     sqlite3_reset(stmt_count_);
     sqlite3_clear_bindings(stmt_count_);
     sqlite3_bind_int64(stmt_count_, 1, chat_id);
+    sqlite3_bind_int64(stmt_count_, 2, thread_id);
 
     if (sqlite3_step(stmt_count_) == SQLITE_ROW) {
         return sqlite3_column_int64(stmt_count_, 0);
@@ -201,7 +269,7 @@ int64_t Database::count_messages(int64_t chat_id) {
     return 0;
 }
 
-void Database::prune_chat_history(int64_t chat_id, int64_t keep_count) {
+void Database::prune_chat_history(int64_t chat_id, int64_t thread_id, int64_t keep_count) {
     std::lock_guard<std::mutex> lock(db_mutex_);
     if (!db_ || !stmt_prune_ || keep_count <= 0) return;
 
@@ -209,13 +277,49 @@ void Database::prune_chat_history(int64_t chat_id, int64_t keep_count) {
     sqlite3_clear_bindings(stmt_prune_);
 
     sqlite3_bind_int64(stmt_prune_, 1, chat_id);
-    sqlite3_bind_int64(stmt_prune_, 2, chat_id);
-    sqlite3_bind_int64(stmt_prune_, 3, keep_count);
+    sqlite3_bind_int64(stmt_prune_, 2, thread_id);
+    sqlite3_bind_int64(stmt_prune_, 3, chat_id);
+    sqlite3_bind_int64(stmt_prune_, 4, thread_id);
+    sqlite3_bind_int64(stmt_prune_, 5, keep_count);
 
-    int rc = sqlite3_step(stmt_prune_);
-    if (rc != SQLITE_DONE) {
-        std::cerr << "[Database] Prune error: " << sqlite3_errmsg(db_) << std::endl;
+    sqlite3_step(stmt_prune_);
+}
+
+bool Database::set_chat_timezone(int64_t chat_id, int offset, const std::string& name) {
+    std::lock_guard<std::mutex> lock(db_mutex_);
+    if (!db_ || !stmt_set_settings_) return false;
+
+    sqlite3_reset(stmt_set_settings_);
+    sqlite3_clear_bindings(stmt_set_settings_);
+
+    sqlite3_bind_int64(stmt_set_settings_, 1, chat_id);
+    sqlite3_bind_int(stmt_set_settings_, 2, offset);
+    sqlite3_bind_text(stmt_set_settings_, 3, name.c_str(), -1, SQLITE_TRANSIENT);
+
+    int rc = sqlite3_step(stmt_set_settings_);
+    return rc == SQLITE_DONE;
+}
+
+ChatSettings Database::get_chat_settings(int64_t chat_id) {
+    std::lock_guard<std::mutex> lock(db_mutex_);
+    ChatSettings settings;
+    settings.chat_id = chat_id;
+    settings.timezone_offset = 3; // Default MSK (UTC+3)
+    settings.timezone_name = "MSK";
+
+    if (!db_ || !stmt_get_settings_) return settings;
+
+    sqlite3_reset(stmt_get_settings_);
+    sqlite3_clear_bindings(stmt_get_settings_);
+    sqlite3_bind_int64(stmt_get_settings_, 1, chat_id);
+
+    if (sqlite3_step(stmt_get_settings_) == SQLITE_ROW) {
+        settings.timezone_offset = sqlite3_column_int(stmt_get_settings_, 0);
+        const unsigned char* name = sqlite3_column_text(stmt_get_settings_, 1);
+        if (name) settings.timezone_name = reinterpret_cast<const char*>(name);
     }
+
+    return settings;
 }
 
 } // namespace summarybot

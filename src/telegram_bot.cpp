@@ -30,6 +30,9 @@ TelegramChat parse_chat(const json& j) {
 TelegramMessage parse_message(const json& j) {
     TelegramMessage m;
     if (j.contains("message_id") && j["message_id"].is_number()) m.message_id = j["message_id"].get<int64_t>();
+    if (j.contains("message_thread_id") && j["message_thread_id"].is_number()) {
+        m.thread_id = j["message_thread_id"].get<int64_t>();
+    }
     if (j.contains("date") && j["date"].is_number()) m.date = j["date"].get<int64_t>();
     if (j.contains("from") && j["from"].is_object()) m.from = parse_user(j["from"]);
     if (m.from.first_name.empty() && j.contains("sender_chat") && j["sender_chat"].is_object()) {
@@ -38,6 +41,30 @@ TelegramMessage parse_message(const json& j) {
     if (j.contains("chat") && j["chat"].is_object()) m.chat = parse_chat(j["chat"]);
     if (j.contains("text") && j["text"].is_string()) m.text = j["text"].get<std::string>();
     if (j.contains("caption") && j["caption"].is_string()) m.caption = j["caption"].get<std::string>();
+
+    // Media type markers
+    if (j.contains("photo")) {
+        m.media_type = "Photo";
+    } else if (j.contains("voice")) {
+        m.media_type = "Voice message";
+    } else if (j.contains("video")) {
+        m.media_type = "Video";
+    } else if (j.contains("video_note")) {
+        m.media_type = "Video note";
+    } else if (j.contains("document") && j["document"].is_object()) {
+        std::string fname = j["document"].value("file_name", "");
+        m.media_type = fname.empty() ? "Document" : "Document: " + fname;
+    } else if (j.contains("audio")) {
+        m.media_type = "Audio";
+    } else if (j.contains("sticker")) {
+        m.media_type = "Sticker";
+    } else if (j.contains("location")) {
+        m.media_type = "Location";
+    } else if (j.contains("contact")) {
+        m.media_type = "Contact";
+    } else if (j.contains("poll")) {
+        m.media_type = "Poll";
+    }
 
     if (j.contains("reply_to_message") && j["reply_to_message"].is_object()) {
         m.reply_to_message = std::make_shared<TelegramMessage>(parse_message(j["reply_to_message"]));
@@ -111,6 +138,7 @@ std::vector<TelegramUpdate> TelegramBot::get_updates(int64_t offset, int timeout
     try {
         json j = json::parse(res.body);
         if (j.value("ok", false) && j.contains("result") && j["result"].is_array()) {
+            updates.reserve(j["result"].size());
             for (const auto& item : j["result"]) {
                 TelegramUpdate u;
                 if (item.contains("update_id")) {
@@ -164,9 +192,20 @@ std::vector<std::string> TelegramBot::split_message(const std::string& text, siz
                 if (split_pos != std::string::npos && split_pos > start + max_len / 2) {
                     split_pos += 1;
                 } else {
-                    // Hard split
                     split_pos = search_end;
                 }
+            }
+        }
+
+        // UTF-8 safety check: Never slice in the middle of a multi-byte sequence
+        while (split_pos > start && (static_cast<unsigned char>(text[split_pos]) & 0xC0) == 0x80) {
+            --split_pos;
+        }
+
+        if (split_pos <= start) {
+            split_pos = start + max_len;
+            while (split_pos < text.size() && (static_cast<unsigned char>(text[split_pos]) & 0xC0) == 0x80) {
+                ++split_pos;
             }
         }
 
@@ -181,7 +220,8 @@ int64_t TelegramBot::send_message(
     int64_t chat_id,
     const std::string& text,
     int64_t reply_to_message_id,
-    const std::string& parse_mode
+    const std::string& parse_mode,
+    int64_t thread_id
 ) {
     std::string url = build_api_url("sendMessage");
     auto chunks = split_message(text, 3900);
@@ -196,6 +236,9 @@ int64_t TelegramBot::send_message(
             {"text", chunk}
         };
 
+        if (thread_id != 0) {
+            payload["message_thread_id"] = thread_id;
+        }
         if (!parse_mode.empty()) {
             payload["parse_mode"] = parse_mode;
         }
@@ -205,7 +248,7 @@ int64_t TelegramBot::send_message(
 
         auto res = http_.post_json(url, payload.dump(), {}, 20);
 
-        // Fallback: If Telegram rejected due to markdown formatting syntax, retry in plain text
+        // Fallback: If Telegram rejected markdown, retry in plain text
         if (!res.is_success() && !parse_mode.empty()) {
             std::cerr << "[TelegramBot] Markdown parse failed for sendMessage, retrying plain text..." << std::endl;
             payload.erase("parse_mode");
@@ -252,12 +295,15 @@ bool TelegramBot::edit_message_text(
     return res.is_success();
 }
 
-bool TelegramBot::send_chat_action(int64_t chat_id, const std::string& action) {
+bool TelegramBot::send_chat_action(int64_t chat_id, const std::string& action, int64_t thread_id) {
     std::string url = build_api_url("sendChatAction");
     json payload = {
         {"chat_id", chat_id},
         {"action", action}
     };
+    if (thread_id != 0) {
+        payload["message_thread_id"] = thread_id;
+    }
     auto res = http_.post_json(url, payload.dump(), {}, 10);
     return res.is_success();
 }
@@ -270,6 +316,29 @@ bool TelegramBot::delete_message(int64_t chat_id, int64_t message_id) {
     };
     auto res = http_.post_json(url, payload.dump(), {}, 10);
     return res.is_success();
+}
+
+bool TelegramBot::is_chat_admin(int64_t chat_id, int64_t user_id) {
+    if (chat_id > 0) return true; // Private chats have no permissions restriction
+
+    std::string url = build_api_url("getChatMember");
+    json payload = {
+        {"chat_id", chat_id},
+        {"user_id", user_id}
+    };
+
+    auto res = http_.post_json(url, payload.dump(), {}, 10);
+    if (!res.is_success()) return false;
+
+    try {
+        json j = json::parse(res.body);
+        if (j.value("ok", false) && j.contains("result") && j["result"].contains("status")) {
+            std::string status = j["result"]["status"].get<std::string>();
+            return (status == "creator" || status == "administrator");
+        }
+    } catch (...) {}
+
+    return false;
 }
 
 } // namespace summarybot

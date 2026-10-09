@@ -34,15 +34,23 @@ struct TelegramChat {
 
 struct TelegramMessage {
     int64_t message_id = 0;
+    int64_t thread_id = 0; // Telegram Forum Topic / Thread ID (0 = general)
     TelegramUser from;
     TelegramChat chat;
     int64_t date = 0;
     std::string text;
     std::string caption;
+    std::string media_type; // e.g. "photo", "voice", "document", etc.
     std::shared_ptr<TelegramMessage> reply_to_message;
 
     std::string get_effective_text() const {
-        return !text.empty() ? text : caption;
+        if (!text.empty()) return text;
+        if (!caption.empty()) {
+            if (!media_type.empty()) return "[" + media_type + "] " + caption;
+            return caption;
+        }
+        if (!media_type.empty()) return "[" + media_type + "]";
+        return "";
     }
 };
 
@@ -85,7 +93,8 @@ public:
         int64_t chat_id,
         const std::string& text,
         int64_t reply_to_message_id = 0,
-        const std::string& parse_mode = "Markdown"
+        const std::string& parse_mode = "Markdown",
+        int64_t thread_id = 0
     );
 
     /**
@@ -101,7 +110,7 @@ public:
     /**
      * @brief Send chat action (e.g., "typing").
      */
-    bool send_chat_action(int64_t chat_id, const std::string& action = "typing");
+    bool send_chat_action(int64_t chat_id, const std::string& action = "typing", int64_t thread_id = 0);
 
     /**
      * @brief Delete a message.
@@ -109,7 +118,12 @@ public:
     bool delete_message(int64_t chat_id, int64_t message_id);
 
     /**
-     * @brief Split long text into chunks of at most max_len chars on clean boundaries.
+     * @brief Check whether a specific user is a creator or administrator of the chat.
+     */
+    bool is_chat_admin(int64_t chat_id, int64_t user_id);
+
+    /**
+     * @brief Split long text into chunks on clean, UTF-8 safe boundaries.
      */
     static std::vector<std::string> split_message(const std::string& text, size_t max_len = 3900);
 

@@ -59,21 +59,20 @@ std::optional<std::string> get_env_or_map(const std::string& key, const std::map
 
 std::string Config::get_default_system_prompt() {
     return "You are an insightful conversation analyst for Telegram group chats.\n"
-           "Your task is to analyze the provided chat history of recent messages and generate a structured, lively, and informative summary.\n\n"
+           "Your task is to analyze the provided chat history of recent messages and generate a structured, lively, and comprehensive summary.\n\n"
            "LANGUAGE RULE:\n"
            "Write the summary in the primary language used in the conversation (e.g. if the participants spoke Russian, write the summary in Russian; if in English, write in English).\n\n"
            "STRICT FORMATTING RULES:\n"
            "1. ABSOLUTELY NO EMOJIS (no icons, symbols, or emoji characters anywhere in headers or body text).\n"
-           "2. DO NOT include an 'Open Questions' or 'Unresolved Questions' section.\n"
-           "3. Write in a natural, lively conversational style without bureaucratic jargon. Include memorable direct quotes from participants in quotation marks (e.g., Alice suggested to \"rewrite the entire pipeline\").\n"
-           "4. Capture the essence: what was specifically discussed, who claimed what, notable arguments, and conclusions.\n\n"
+           "2. DO NOT include an 'Open Questions' section.\n"
+           "3. DO NOT include a separate 'Decisions and Outcomes' section. Integrate all conclusions, results, and agreements directly into the main discussion section.\n"
+           "4. Write in a natural, lively conversational style without bureaucratic jargon. Make the discussion section detailed and informative, including memorable direct quotes from participants in quotation marks (e.g., Alice suggested to \"rewrite the entire pipeline\").\n"
+           "5. Capture the dynamics: what was specifically discussed, who claimed what, notable arguments, and what happened.\n\n"
            "OUTPUT FORMAT (in the language of the conversation, using clean Telegram Markdown with zero emojis):\n\n"
            "*Summary:*\n"
-           "(1-2 sentences: core topic, overall vibe, and context)\n\n"
+           "(1-2 sentences: core subject, atmosphere, and overall context)\n\n"
            "*Key Topics & Discussion:*\n"
-           "- Bullet points outlining key subjects with participant names/usernames, their stances, and authentic direct quotes (\"...\").\n\n"
-           "*Decisions & Outcomes:*\n"
-           "- What was concluded or agreed upon (or explicitly note if no decisions were made and it was casual banter).";
+           "- Detailed narrative and bullet points covering all main topics in depth, with participant names/usernames, their stances, and authentic direct quotes (\"...\"). Include any outcomes or conclusions directly within their relevant topics.";
 }
 
 Config Config::load(const std::string& custom_config_path) {
@@ -190,8 +189,13 @@ Config Config::load(const std::string& custom_config_path) {
     if (auto v = get_env_or_map("MAX_STORED_MESSAGES_PER_CHAT", env_file_map)) {
         try { cfg.max_stored_messages_per_chat = std::stoll(*v); } catch (...) {}
     }
-    if (auto v = get_env_or_map("DB_PATH", env_file_map)) cfg.db_path = *v;
-    if (auto v = get_env_or_map("SYSTEM_PROMPT", env_file_map)) cfg.system_prompt = *v;
+    if (auto v = get_env_or_map("ADMIN_ONLY_SUMMARIES", env_file_map)) {
+        std::string s = *v;
+        cfg.admin_only_summaries = (s == "true" || s == "1" || s == "yes");
+    }
+    if (auto v = get_env_or_map("RATE_LIMIT_SECONDS", env_file_map)) {
+        try { cfg.rate_limit_seconds = std::stoi(*v); } catch (...) {}
+    }
 
     return cfg;
 }

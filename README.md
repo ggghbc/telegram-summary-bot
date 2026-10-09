@@ -19,17 +19,21 @@ A high-performance Telegram bot written in modern C++20 that maintains a persist
 
 ## Group Chat Usage
 
-The bot responds to mentions and commands with an optional message count $N$ (maximum **1,500**):
+The bot responds to mentions and commands with counts, time intervals, or topic filters (hard limit: **1,500** messages):
 
 | Command | Description |
 |---|---|
-| `@bot_username 500` | Summarize the last 500 messages in the chat |
-| `@bot_username 1500` | Summarize the last 1,500 messages (maximum allowed cap) |
-| `@bot_username` | Summarize using the default count (100 messages) |
-| `/summary 300` | Slash command alternative |
+| `@bot_username 500` | Summarize the last 500 messages |
+| `@bot_username 24h` | Summarize all messages from the last 24 hours (also supports `12h`, `2h`, `30m`, `1d`) |
+| `@bot_username today` | Summarize all messages since midnight today in chat timezone |
+| `@bot_username 300 about release` | Summarize messages focusing on a specific topic |
+| `@bot_username 24h about database` | Time-window summary with topic focus |
+| `/timezone +3` or `/timezone MSK` | Set or inspect custom timezone offset for the chat |
+| `@bot_username` | Summarize with default count (100 messages) |
+| `/summary 200` | Slash command alternative |
 | `/help` or `@bot_username help` | Display help and usage instructions |
 
-> **Note on limits:** If a user requests more than 1,500 messages (e.g., `@bot 3000`), the bot automatically clamps the request to 1,500 messages and provides a polite note.
+> **Forum Topics / Threads:** When invoked inside a Telegram Topic / Thread, the bot automatically isolates and summarizes messages exclusively within that topic.
 
 ---
 
