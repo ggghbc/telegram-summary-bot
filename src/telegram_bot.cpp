@@ -67,8 +67,21 @@ TelegramMessage parse_message(const json& j) {
         }
     } else if (j.contains("audio")) {
         m.media_type = "Audio";
-    } else if (j.contains("sticker")) {
-        m.media_type = "Sticker";
+    } else if (j.contains("sticker") && j["sticker"].is_object()) {
+        const auto& s = j["sticker"];
+        std::string emoji = s.value("emoji", "");
+        m.media_type = emoji.empty() ? "Sticker" : ("Sticker " + emoji);
+
+        bool is_animated = s.value("is_animated", false);
+        bool is_video = s.value("is_video", false);
+
+        if (!is_animated && !is_video && s.contains("file_id") && s["file_id"].is_string()) {
+            m.photo_file_id = s["file_id"].get<std::string>();
+        } else if (s.contains("thumbnail") && s["thumbnail"].is_object() && s["thumbnail"].contains("file_id")) {
+            m.photo_file_id = s["thumbnail"]["file_id"].get<std::string>();
+        } else if (s.contains("thumb") && s["thumb"].is_object() && s["thumb"].contains("file_id")) {
+            m.photo_file_id = s["thumb"]["file_id"].get<std::string>();
+        }
     } else if (j.contains("location")) {
         m.media_type = "Location";
     } else if (j.contains("contact")) {

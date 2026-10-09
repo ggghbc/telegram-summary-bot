@@ -90,7 +90,8 @@ private:
         int64_t chat_id,
         int64_t message_id,
         const std::string& file_id,
-        const std::string& caption
+        const std::string& caption,
+        bool is_sticker = false
     );
 
     void send_help(int64_t chat_id, int64_t thread_id, int64_t reply_to_id);

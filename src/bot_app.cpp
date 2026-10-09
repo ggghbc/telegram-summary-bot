@@ -463,9 +463,10 @@ void BotApp::handle_message(const TelegramMessage& msg) {
         cm.text = effective_text;
         db_.save_message(cm);
 
-        // Asynchronous image analysis for chat context if a photo was attached
+        // Asynchronous image analysis for chat context if a photo or sticker was attached
         if (config_.enable_image_analysis && !msg.photo_file_id.empty()) {
-            analyze_and_update_image_async(msg.chat.id, msg.message_id, msg.photo_file_id, msg.caption);
+            bool is_sticker = (msg.media_type.rfind("Sticker", 0) == 0);
+            analyze_and_update_image_async(msg.chat.id, msg.message_id, msg.photo_file_id, msg.caption, is_sticker);
         }
 
         // Periodically prune messages to keep DB lean
@@ -583,9 +584,10 @@ void BotApp::analyze_and_update_image_async(
     int64_t chat_id,
     int64_t message_id,
     const std::string& file_id,
-    const std::string& caption
+    const std::string& caption,
+    bool is_sticker
 ) {
-    std::thread([this, chat_id, message_id, file_id, caption]() {
+    std::thread([this, chat_id, message_id, file_id, caption, is_sticker]() {
         try {
             std::string file_path = bot_->get_file_path(file_id);
             if (file_path.empty()) return;
@@ -598,7 +600,12 @@ void BotApp::analyze_and_update_image_async(
             else if (file_path.ends_with(".webp")) mime_type = "image/webp";
 
             std::string err;
-            std::string prompt = "Describe what is shown in this image in one concise phrase or short sentence (e.g. 'скриншот с ошибкой компиляции', 'фото кота', 'мем про работу'). Do not include conversational filler or emojis.";
+            std::string prompt;
+            if (is_sticker) {
+                prompt = "Describe what character, object, or emotion is shown in this Telegram sticker in 2-5 concise words (e.g. 'кот машет лапой', 'собака в шоке', 'мем pepe плачет', 'персонаж улыбается'). Do not include conversational filler or emojis.";
+            } else {
+                prompt = "Describe what is shown in this image in one concise phrase or short sentence (e.g. 'скриншот с ошибкой компиляции', 'фото кота', 'мем про работу'). Do not include conversational filler or emojis.";
+            }
             std::string description = llm_->describe_image(image_bytes, mime_type, prompt, err);
 
             if (!description.empty()) {
@@ -608,14 +615,15 @@ void BotApp::analyze_and_update_image_async(
                     description = description.substr(0, 195) + "...";
                 }
 
-                std::string updated_text = "[Photo: " + description + "]";
+                std::string prefix = is_sticker ? "[Sticker: " : "[Photo: ";
+                std::string updated_text = prefix + description + "]";
                 if (!caption.empty()) {
                     updated_text += " (reaction: \"" + caption + "\")";
                 }
 
                 db_.update_message_text(chat_id, message_id, updated_text);
-                std::cout << "[BotApp] Auto-scanned photo " << message_id 
-                          << " into context: " << description << std::endl;
+                std::cout << "[BotApp] Auto-scanned " << (is_sticker ? "sticker " : "photo ")
+                          << message_id << " into context: " << description << std::endl;
             }
         } catch (const std::exception& e) {
             std::cerr << "[BotApp] Error during background image analysis: " << e.what() << std::endl;

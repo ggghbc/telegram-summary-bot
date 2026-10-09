@@ -7,7 +7,7 @@ A high-performance Telegram bot that maintains a persistent local chat history a
 ## Highlights & Architecture
 
 - **Performance**: Built with modern C++20.
-- **Automatic Visual Context Scanning**: Automatically auto-scans photos, screenshots, and diagrams in chat conversation into concise context notes (e.g. *Alice* shared an image showing *a build error* and commented: "Why won't this compile?"). Highly token-efficient (stores lightweight 1-sentence text notes; zero multimodal vision tokens during summary generation) and easily toggleable via `ENABLE_IMAGE_ANALYSIS=true/false`.
+- **Automatic Visual & Sticker Context Scanning**: Automatically scans photos, screenshots, and Telegram stickers into concise context notes (e.g. *Alice* shared a sticker of *a cat waving* and wrote: "meow meow", or *Bob* shared an image showing *a build error*). Highly token-efficient (converts visuals into lightweight 1-sentence text notes in the background; zero multimodal vision tokens during summary generation) and easily toggleable via `ENABLE_IMAGE_ANALYSIS=true/false`.
 - **Strict Factual Grounding**: Follows reply chains with quoted snippets, attributes statements with authentic participant quotes (`"..."`), and prohibits psychologizing or dramatic extrapolations.
 - **SQLite 3 with WAL Mode**: Embedded SQLite 3 database operating in Write-Ahead Logging (`WAL`) mode. Message insertion takes `< 0.1 ms`.
 - **Universal LLM Compatibility**: Connects to any OpenAI-compatible API, including Google Gemini (`gemini-3.1-flash-lite`, `gemini-3-flash-preview`), OpenAI (`gpt-4o-mini`), Groq (`llama-3.3-70b-versatile`), DeepSeek (`deepseek-chat`), OpenRouter, and local Ollama or vLLM instances.
@@ -104,7 +104,7 @@ LLM_API_KEY=your_llm_api_key_here
 LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
 LLM_MODEL=gemini-3.1-flash-lite
 
-# Automatically scan photos into context notes (true/false)
+# Automatically scan photos and stickers into context notes (true/false)
 ENABLE_IMAGE_ANALYSIS=true
 
 # Optional proxy (HTTP or SOCKS5)
