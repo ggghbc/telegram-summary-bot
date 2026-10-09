@@ -82,13 +82,35 @@ Config Config::load(const std::string& custom_config_path) {
 
     std::map<std::string, std::string> env_file_map;
 
-    // Check .env in current directory
-    if (std::filesystem::exists(".env")) {
-        parse_env_file(".env", env_file_map);
+    // Check potential .env locations (current dir, parent dir, or custom path)
+    const std::vector<std::string> env_candidates = {
+        custom_config_path,
+        ".env",
+        "../.env",
+        "../../.env"
+    };
+
+    for (const auto& candidate : env_candidates) {
+        if (!candidate.empty() && std::filesystem::exists(candidate) && !std::filesystem::is_directory(candidate)) {
+            parse_env_file(candidate, env_file_map);
+            std::cout << "[Config] Loaded environment from: " << candidate << std::endl;
+            break;
+        }
     }
 
-    // Check config.json or custom path
-    std::string json_path = custom_config_path.empty() ? "config.json" : custom_config_path;
+    // Check potential config.json locations
+    std::string json_path;
+    const std::vector<std::string> json_candidates = {
+        custom_config_path,
+        "config.json",
+        "../config.json"
+    };
+    for (const auto& candidate : json_candidates) {
+        if (!candidate.empty() && candidate.ends_with(".json") && std::filesystem::exists(candidate)) {
+            json_path = candidate;
+            break;
+        }
+    }
     if (std::filesystem::exists(json_path)) {
         try {
             std::ifstream f(json_path);
