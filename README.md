@@ -19,20 +19,20 @@ A high-performance Telegram bot that maintains a persistent local chat history a
 
 The bot responds to mentions and commands with counts, time intervals, topic filters, or images (hard limit: **1,500** messages):
 
-| Command                             | Description                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------- |
-| `@bot_username 500`                 | Summarize the last 500 messages                                                        |
-| `@bot_username 24h`                 | Summarize all messages from the last 24 hours (also supports `12h`, `2h`, `30m`, `1d`) |
-| `@bot_username today`               | Summarize all messages since midnight today in chat timezone                           |
-| `@bot_username 300 about release`   | Summarize messages focusing on a specific topic                                        |
-| `@bot_username 24h about database`  | Time-window summary with topic focus                                                   |
-| `@bot_username` (reply to photo)    | Analyze and explain the image in detail                                                |
-| `[Photo] + @bot_username <prompt>`  | Inspect attached photo and answer user's question                                       |
-| `/photo` or `/image` (on photo)     | Explicit command to analyze an image                                                   |
-| `/timezone +3` or `/timezone MSK`   | Set or inspect custom timezone offset for the chat                                     |
-| `@bot_username`                     | Summarize with default count (100 messages)                                            |
-| `/summary 200`                      | Slash command alternative                                                              |
-| `/help` or `@bot_username help`     | Display help and usage instructions                                                    |
+| Command                            | Description                                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `@bot_username 500`                | Summarize the last 500 messages                                                        |
+| `@bot_username 24h`                | Summarize all messages from the last 24 hours (also supports `12h`, `2h`, `30m`, `1d`) |
+| `@bot_username today`              | Summarize all messages since midnight today in chat timezone                           |
+| `@bot_username 300 about release`  | Summarize messages focusing on a specific topic                                        |
+| `@bot_username 24h about database` | Time-window summary with topic focus                                                   |
+| `@bot_username` (reply to photo)   | Analyze and explain the image in detail                                                |
+| `[Photo] + @bot_username <prompt>` | Inspect attached photo and answer user's question                                      |
+| `/photo` or `/image` (on photo)    | Explicit command to analyze an image                                                   |
+| `/timezone +3` or `/timezone MSK`  | Set or inspect custom timezone offset for the chat                                     |
+| `@bot_username`                    | Summarize with default count (100 messages)                                            |
+| `/summary 200`                     | Slash command alternative                                                              |
+| `/help` or `@bot_username help`    | Display help and usage instructions                                                    |
 
 > **Forum Topics / Threads:** When invoked inside a Telegram Topic / Thread, the bot automatically isolates and summarizes messages exclusively within that topic.
 
@@ -91,7 +91,7 @@ Create a `.env` file from the provided template:
 
 ```bash
 cp .env.example .env
-vim .env # 
+vim .env # or any other text editor
 ```
 
 Configure your credentials:
@@ -113,7 +113,7 @@ LLM_MODEL=gemini-3.1-flash-lite
 
 #### Provider Examples
 
-- **Google Gemini (Recommended)**:
+- **Google Gemini**:
 
     ```ini
     LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
@@ -121,7 +121,7 @@ LLM_MODEL=gemini-3.1-flash-lite
     LLM_API_KEY=your_gemini_key
     ```
 
-- **Groq (Ultra-fast)**:
+- **Groq**:
 
     ```ini
     LLM_API_URL=https://api.groq.com/openai/v1/chat/completions
@@ -157,7 +157,7 @@ LLM_MODEL=gemini-3.1-flash-lite
 Run directly from either the project root or the `build` directory:
 
 ```bash
-cd /home/jdn/dev/telegram-summary-bot/build
+cd /*your path to the root of the project*/telegram-summary-bot/build
 ./telegram-summary-bot
 ```
 
@@ -172,8 +172,8 @@ After=network.target
 [Service]
 Type=simple
 User=$USER
-WorkingDirectory=/home/jdn/dev/telegram-summary-bot
-ExecStart=/home/jdn/dev/telegram-summary-bot/build/telegram-summary-bot
+WorkingDirectory=/*your path to the folder*/telegram-summary-bot
+ExecStart=/*your path to the folder*/build/telegram-summary-bot
 Restart=always
 RestartSec=5
 
