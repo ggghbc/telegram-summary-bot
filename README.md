@@ -104,6 +104,9 @@ LLM_API_KEY=your_llm_api_key_here
 LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
 LLM_MODEL=gemini-3.1-flash-lite
 
+# Automatically scan photos into context notes (true/false)
+ENABLE_IMAGE_ANALYSIS=true
+
 # Optional proxy (HTTP or SOCKS5)
 # PROXY_URL=socks5h://127.0.0.1:10808
 ```
