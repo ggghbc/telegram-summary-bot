@@ -22,17 +22,6 @@ void HttpClient::global_cleanup() {
     curl_global_cleanup();
 }
 
-HttpClient::HttpClient() {
-    curl_ = curl_easy_init();
-}
-
-HttpClient::~HttpClient() {
-    if (curl_) {
-        curl_easy_cleanup(curl_);
-        curl_ = nullptr;
-    }
-}
-
 void HttpClient::set_proxy(const std::string& proxy_url) {
     proxy_url_ = proxy_url;
 }
@@ -42,8 +31,7 @@ void HttpClient::setup_curl_common(
     const std::string& url,
     int timeout_seconds,
     std::string& response_buffer
-) {
-    curl_easy_reset(handle);
+) const {
     curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, &response_buffer);
@@ -63,9 +51,9 @@ HttpResponse HttpClient::get(
     const std::string& url,
     const std::map<std::string, std::string>& headers,
     int timeout_seconds
-) {
+) const {
     HttpResponse response;
-    CURL* handle = curl_ ? curl_ : curl_easy_init();
+    CURL* handle = curl_easy_init();
     if (!handle) {
         response.error_message = "Failed to initialize CURL handle";
         return response;
@@ -101,9 +89,7 @@ HttpResponse HttpClient::get(
     if (chunk) {
         curl_slist_free_all(chunk);
     }
-    if (!curl_) {
-        curl_easy_cleanup(handle);
-    }
+    curl_easy_cleanup(handle);
 
     return response;
 }
@@ -113,9 +99,9 @@ HttpResponse HttpClient::post_json(
     const std::string& json_payload,
     const std::map<std::string, std::string>& headers,
     int timeout_seconds
-) {
+) const {
     HttpResponse response;
-    CURL* handle = curl_ ? curl_ : curl_easy_init();
+    CURL* handle = curl_easy_init();
     if (!handle) {
         response.error_message = "Failed to initialize CURL handle";
         return response;
@@ -152,9 +138,7 @@ HttpResponse HttpClient::post_json(
     if (chunk) {
         curl_slist_free_all(chunk);
     }
-    if (!curl_) {
-        curl_easy_cleanup(handle);
-    }
+    curl_easy_cleanup(handle);
 
     return response;
 }

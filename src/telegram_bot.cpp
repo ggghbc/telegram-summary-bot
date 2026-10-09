@@ -32,6 +32,9 @@ TelegramMessage parse_message(const json& j) {
     if (j.contains("message_id") && j["message_id"].is_number()) m.message_id = j["message_id"].get<int64_t>();
     if (j.contains("date") && j["date"].is_number()) m.date = j["date"].get<int64_t>();
     if (j.contains("from") && j["from"].is_object()) m.from = parse_user(j["from"]);
+    if (m.from.first_name.empty() && j.contains("sender_chat") && j["sender_chat"].is_object()) {
+        m.from.first_name = j["sender_chat"].value("title", "Anonymous");
+    }
     if (j.contains("chat") && j["chat"].is_object()) m.chat = parse_chat(j["chat"]);
     if (j.contains("text") && j["text"].is_string()) m.text = j["text"].get<std::string>();
     if (j.contains("caption") && j["caption"].is_string()) m.caption = j["caption"].get<std::string>();

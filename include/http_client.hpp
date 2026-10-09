@@ -22,12 +22,13 @@ struct HttpResponse {
 };
 
 /**
- * @brief libcurl-based HTTP client supporting GET, POST, JSON payloads, and proxies.
+ * @brief Thread-safe libcurl-based HTTP client supporting GET, POST, JSON payloads, and proxies.
+ * Creates an independent CURL handle per request to guarantee thread safety.
  */
 class HttpClient {
 public:
-    HttpClient();
-    ~HttpClient();
+    HttpClient() = default;
+    ~HttpClient() = default;
 
     // Disable copying
     HttpClient(const HttpClient&) = delete;
@@ -45,34 +46,33 @@ public:
     void set_proxy(const std::string& proxy_url);
 
     /**
-     * @brief Execute an HTTP GET request.
+     * @brief Execute an HTTP GET request (thread-safe).
      */
     HttpResponse get(
         const std::string& url,
         const std::map<std::string, std::string>& headers = {},
         int timeout_seconds = 30
-    );
+    ) const;
 
     /**
-     * @brief Execute an HTTP POST request with JSON payload.
+     * @brief Execute an HTTP POST request with JSON payload (thread-safe).
      */
     HttpResponse post_json(
         const std::string& url,
         const std::string& json_payload,
         const std::map<std::string, std::string>& headers = {},
         int timeout_seconds = 60
-    );
+    ) const;
 
 private:
     std::string proxy_url_;
-    CURL* curl_ = nullptr;
 
     void setup_curl_common(
         CURL* handle,
         const std::string& url,
         int timeout_seconds,
         std::string& response_buffer
-    );
+    ) const;
 };
 
 } // namespace summarybot

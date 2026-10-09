@@ -261,58 +261,62 @@ void BotApp::execute_summary_async(
 ) {
     // Run summary generation in a detached thread so update polling is never blocked
     std::thread([this, chat_id, request_msg_id, count]() {
-        int64_t effective_count = std::min(count, config_.max_messages_to_process);
+        try {
+            int64_t effective_count = std::min(count, config_.max_messages_to_process);
 
-        // Send initial progress status message
-        std::string status_text = "⏳ Собираю последние " + std::to_string(effective_count) + " сообщений и формирую самари...";
-        int64_t status_msg_id = bot_->send_message(chat_id, status_text, request_msg_id, "Markdown");
+            // Send initial progress status message
+            std::string status_text = "⏳ Собираю последние " + std::to_string(effective_count) + " сообщений и формирую самари...";
+            int64_t status_msg_id = bot_->send_message(chat_id, status_text, request_msg_id, "Markdown");
 
-        // Start typing indicator loop
-        std::atomic<bool> is_generating{true};
-        std::thread typing_thread([this, chat_id, &is_generating]() {
-            while (is_generating) {
-                bot_->send_chat_action(chat_id, "typing");
-                for (int i = 0; i < 40 && is_generating; ++i) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            // Start typing indicator loop using std::jthread
+            std::atomic<bool> is_generating{true};
+            std::jthread typing_thread([this, chat_id, &is_generating](std::stop_token st) {
+                while (!st.stop_requested() && is_generating.load()) {
+                    bot_->send_chat_action(chat_id, "typing");
+                    for (int i = 0; i < 40 && !st.stop_requested() && is_generating.load(); ++i) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
                 }
+            });
+
+            // Retrieve messages from database
+            auto messages = db_.get_last_messages(chat_id, effective_count);
+
+            if (messages.empty()) {
+                is_generating.store(false);
+                typing_thread.request_stop();
+                if (status_msg_id != 0) bot_->delete_message(chat_id, status_msg_id);
+
+                std::string empty_msg =
+                    "⚠️ В истории этого чата пока нет сохраненных сообщений.\n\n"
+                    "Чтобы бот мог читать историю беседы:\n"
+                    "1. Убедитесь, что бот добавлен в чат.\n"
+                    "2. Отключите Privacy Mode в @BotFather (`/setprivacy` -> *Disable*) "
+                    "или назначьте бота администратором группы.\n"
+                    "3. Отправляйте сообщения в чат, и бот будет сохранять их для последующих самари!";
+                bot_->send_message(chat_id, empty_msg, request_msg_id, "Markdown");
+                return;
             }
-        });
 
-        // Retrieve messages from database
-        auto messages = db_.get_last_messages(chat_id, effective_count);
+            std::string error;
+            std::string summary = generator_->generate(messages, count, error);
 
-        if (messages.empty()) {
-            is_generating = false;
-            if (typing_thread.joinable()) typing_thread.join();
-            if (status_msg_id != 0) bot_->delete_message(chat_id, status_msg_id);
+            is_generating.store(false);
+            typing_thread.request_stop();
 
-            std::string empty_msg =
-                "⚠️ В истории этого чата пока нет сохраненных сообщений.\n\n"
-                "Чтобы бот мог читать историю беседы:\n"
-                "1. Убедитесь, что бот добавлен в чат.\n"
-                "2. Отключите Privacy Mode в @BotFather (`/setprivacy` -> *Disable*) "
-                "или назначьте бота администратором группы.\n"
-                "3. Отправляйте сообщения в чат, и бот будет сохранять их для последующих самари!";
-            bot_->send_message(chat_id, empty_msg, request_msg_id, "Markdown");
-            return;
-        }
+            // Delete temporary status indicator
+            if (status_msg_id != 0) {
+                bot_->delete_message(chat_id, status_msg_id);
+            }
 
-        std::string error;
-        std::string summary = generator_->generate(messages, count, error);
-
-        is_generating = false;
-        if (typing_thread.joinable()) typing_thread.join();
-
-        // Delete temporary status indicator
-        if (status_msg_id != 0) {
-            bot_->delete_message(chat_id, status_msg_id);
-        }
-
-        if (!summary.empty()) {
-            bot_->send_message(chat_id, summary, request_msg_id, "Markdown");
-        } else {
-            std::string err_msg = "❌ Ошибка при генерации самари: " + error;
-            bot_->send_message(chat_id, err_msg, request_msg_id, "");
+            if (!summary.empty()) {
+                bot_->send_message(chat_id, summary, request_msg_id, "Markdown");
+            } else {
+                std::string err_msg = "❌ Ошибка при генерации самари: " + error;
+                bot_->send_message(chat_id, err_msg, request_msg_id, "");
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[BotApp] Exception in execute_summary_async: " << e.what() << std::endl;
         }
     }).detach();
 }
