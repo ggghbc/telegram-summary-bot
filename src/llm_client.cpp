@@ -1,6 +1,8 @@
 #include "llm_client.hpp"
 #include <nlohmann/json.hpp>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 namespace summarybot {
 
@@ -58,7 +60,21 @@ std::string LlmClient::call_openai_compatible(
         {"Authorization", "Bearer " + api_key_}
     };
 
-    auto res = http_.post_json(api_url_, payload.dump(), headers, timeout_seconds_);
+    HttpResponse res;
+    for (int attempt = 1; attempt <= 3; ++attempt) {
+        res = http_.post_json(api_url_, payload.dump(), headers, timeout_seconds_);
+        if (res.is_success()) {
+            break;
+        }
+        if ((res.status_code == 503 || res.status_code == 429 || res.status_code == 500) && attempt < 3) {
+            std::cerr << "[LlmClient] Received HTTP " << res.status_code 
+                      << ", retrying attempt " << (attempt + 1) << " in 2 seconds..." << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            continue;
+        }
+        break;
+    }
+
     if (!res.is_success()) {
         std::string err_desc;
         try {
