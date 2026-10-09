@@ -109,7 +109,7 @@ LLM_MODEL=gpt-4o-mini
 - **Google Gemini (OpenAI Endpoint)**:
   ```ini
   LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-  LLM_MODEL=gemini-2.5-flash
+  LLM_MODEL=gemini-3.8-flash
   LLM_API_KEY=AIzaSy...
   ```
 - **Groq (Молниеносная генерация)**:
