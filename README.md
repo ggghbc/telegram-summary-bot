@@ -1,37 +1,33 @@
 # Telegram Conversation Summary Bot (C++20)
 
-A high-performance Telegram bot written in modern C++20 that maintains a persistent local chat history and generates concise, structured, and lively conversation summaries on demand for up to 1,500 messages.
+A high-performance Telegram bot that maintains a persistent local chat history and generates concise, structured, and lively conversation summaries on demand for up to 1,500 messages.
 
 ---
 
 ## Highlights & Architecture
 
-- **C++20 & Native Performance**: Built with modern C++20 and compiled with `-O3` optimizations.
-- **SQLite 3 with WAL Mode**: Embedded SQLite 3 database operating in Write-Ahead Logging (`WAL`) mode. Message insertion takes `< 0.1 ms`, with persistent storage across restarts and automatic sliding-window pruning.
-- **Fully Asynchronous Execution**: LLM summary requests execute in dedicated background threads (`std::jthread`). The long-polling loop remains unblocked and simultaneously streams live "typing..." actions to the chat.
+- **Performance**: Built with modern C++20.
+- **SQLite 3 with WAL Mode**: Embedded SQLite 3 database operating in Write-Ahead Logging (`WAL`) mode. Message insertion takes `< 0.1 ms`.
 - **Universal LLM Compatibility**: Connects to any OpenAI-compatible API, including Google Gemini (`gemini-3.1-flash-lite`, `gemini-3-flash-preview`), OpenAI (`gpt-4o-mini`), Groq (`llama-3.3-70b-versatile`), DeepSeek (`deepseek-chat`), OpenRouter, and local Ollama or vLLM instances.
 - **Language Matching**: The bot automatically detects the predominant language spoken in the conversation (Russian, English, Spanish, etc.) and generates the summary in that same language.
-- **Clean, Emoji-Free Aesthetic**: Headers and outputs follow a clean Markdown layout with zero emojis and Moscow Time (`MSK`, UTC+3) timestamps.
 - **Smart Message Splitting**: Intelligently breaks long summaries exceeding Telegram's 4,096-character limit into clean paragraph-aligned chunks.
 - **Proxy Support**: Native HTTP and SOCKS5 proxy support via `libcurl`.
-
----
 
 ## Group Chat Usage
 
 The bot responds to mentions and commands with counts, time intervals, or topic filters (hard limit: **1,500** messages):
 
-| Command | Description |
-|---|---|
-| `@bot_username 500` | Summarize the last 500 messages |
-| `@bot_username 24h` | Summarize all messages from the last 24 hours (also supports `12h`, `2h`, `30m`, `1d`) |
-| `@bot_username today` | Summarize all messages since midnight today in chat timezone |
-| `@bot_username 300 about release` | Summarize messages focusing on a specific topic |
-| `@bot_username 24h about database` | Time-window summary with topic focus |
-| `/timezone +3` or `/timezone MSK` | Set or inspect custom timezone offset for the chat |
-| `@bot_username` | Summarize with default count (100 messages) |
-| `/summary 200` | Slash command alternative |
-| `/help` or `@bot_username help` | Display help and usage instructions |
+| Command                            | Description                                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `@bot_username 500`                | Summarize the last 500 messages                                                        |
+| `@bot_username 24h`                | Summarize all messages from the last 24 hours (also supports `12h`, `2h`, `30m`, `1d`) |
+| `@bot_username today`              | Summarize all messages since midnight today in chat timezone                           |
+| `@bot_username 300 about release`  | Summarize messages focusing on a specific topic                                        |
+| `@bot_username 24h about database` | Time-window summary with topic focus                                                   |
+| `/timezone +3` or `/timezone MSK`  | Set or inspect custom timezone offset for the chat                                     |
+| `@bot_username`                    | Summarize with default count (100 messages)                                            |
+| `/summary 200`                     | Slash command alternative                                                              |
+| `/help` or `@bot_username help`    | Display help and usage instructions                                                    |
 
 > **Forum Topics / Threads:** When invoked inside a Telegram Topic / Thread, the bot automatically isolates and summarizes messages exclusively within that topic.
 
@@ -47,7 +43,7 @@ By default, Telegram bots in groups only receive commands starting with `/` or d
 4. Click **`Disable`**.
 5. @BotFather will confirm: `Privacy mode is disabled for [your_bot]`.
 
-*(Alternatively, promote the bot to Group Administrator with message-reading privileges).*
+_(Alternatively, promote the bot to Group Administrator with message-reading privileges)._
 
 ---
 
@@ -113,39 +109,43 @@ LLM_MODEL=gemini-3.1-flash-lite
 #### Provider Examples
 
 - **Google Gemini (Recommended)**:
-  ```ini
-  LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-  LLM_MODEL=gemini-3.1-flash-lite
-  LLM_API_KEY=your_gemini_key
-  ```
+
+    ```ini
+    LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+    LLM_MODEL=gemini-3.1-flash-lite
+    LLM_API_KEY=your_gemini_key
+    ```
 
 - **Groq (Ultra-fast)**:
-  ```ini
-  LLM_API_URL=https://api.groq.com/openai/v1/chat/completions
-  LLM_MODEL=llama-3.3-70b-versatile
-  LLM_API_KEY=your_groq_key
-  ```
+
+    ```ini
+    LLM_API_URL=https://api.groq.com/openai/v1/chat/completions
+    LLM_MODEL=llama-3.3-70b-versatile
+    LLM_API_KEY=your_groq_key
+    ```
 
 - **OpenAI**:
-  ```ini
-  LLM_API_URL=https://api.openai.com/v1/chat/completions
-  LLM_MODEL=gpt-4o-mini
-  LLM_API_KEY=your_openai_key
-  ```
+
+    ```ini
+    LLM_API_URL=https://api.openai.com/v1/chat/completions
+    LLM_MODEL=gpt-4o-mini
+    LLM_API_KEY=your_openai_key
+    ```
 
 - **DeepSeek**:
-  ```ini
-  LLM_API_URL=https://api.deepseek.com/chat/completions
-  LLM_MODEL=deepseek-chat
-  LLM_API_KEY=your_deepseek_key
-  ```
+
+    ```ini
+    LLM_API_URL=https://api.deepseek.com/chat/completions
+    LLM_MODEL=deepseek-chat
+    LLM_API_KEY=your_deepseek_key
+    ```
 
 - **Local Ollama**:
-  ```ini
-  LLM_API_URL=http://localhost:11434/v1/chat/completions
-  LLM_MODEL=llama3.1
-  LLM_API_KEY=ollama
-  ```
+    ```ini
+    LLM_API_URL=http://localhost:11434/v1/chat/completions
+    LLM_MODEL=llama3.1
+    LLM_API_KEY=ollama
+    ```
 
 ### 4. Running the Bot
 
@@ -192,41 +192,6 @@ docker compose logs -f
 
 ---
 
-## Project Structure
-
-```
-telegram-summary-bot/
-├── include/
-│   ├── bot_app.hpp            # Application controller & background task orchestrator
-│   ├── config.hpp             # Configuration parser (.env, config.json, env vars)
-│   ├── db.hpp                 # Thread-safe SQLite3 layer with prepared statements & WAL
-│   ├── http_client.hpp        # Thread-safe libcurl client with proxy & retry logic
-│   ├── llm_client.hpp         # Universal LLM client with automatic 503/429 retry
-│   ├── summary_generator.hpp  # Transcript builder, MSK time formatting & prompt logic
-│   └── telegram_bot.hpp       # Telegram API client (polling, message chunk splitter)
-├── src/
-│   ├── bot_app.cpp
-│   ├── config.cpp
-│   ├── db.cpp
-│   ├── http_client.cpp
-│   ├── llm_client.cpp
-│   ├── summary_generator.cpp
-│   ├── telegram_bot.cpp
-│   └── main.cpp
-├── tests/
-│   └── test_all.cpp           # Unit and integration test suite
-├── external/
-│   └── nlohmann/json.hpp      # Modern C++ JSON parser
-├── CMakeLists.txt
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-├── config.example.json
-└── README.md
-```
-
----
-
 ## License
 
-MIT License.
+[MIT License](./LICENSE). Free to use, modify, and distribute.

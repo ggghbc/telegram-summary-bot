@@ -34,8 +34,8 @@ bool Database::init(const std::string& db_path) {
         sqlite3_free(err_msg);
     }
 
-    // Create schema
-    const char* schema_sql =
+    // 1. Create tables if they do not exist
+    const char* tables_sql =
         "CREATE TABLE IF NOT EXISTS messages ("
         "    id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "    chat_id INTEGER NOT NULL,"
@@ -54,18 +54,27 @@ bool Database::init(const std::string& db_path) {
         "    chat_id INTEGER PRIMARY KEY,"
         "    timezone_offset INTEGER DEFAULT 3,"
         "    timezone_name TEXT DEFAULT 'MSK'"
-        ");"
-        "CREATE INDEX IF NOT EXISTS idx_messages_chat_thread_msg ON messages(chat_id, thread_id, message_id DESC);"
-        "CREATE INDEX IF NOT EXISTS idx_messages_chat_thread_time ON messages(chat_id, thread_id, timestamp DESC);";
+        ");";
 
-    if (sqlite3_exec(db_, schema_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
-        std::cerr << "[Database] Error creating schema: " << (err_msg ? err_msg : "unknown") << std::endl;
+    if (sqlite3_exec(db_, tables_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+        std::cerr << "[Database] Error creating tables: " << (err_msg ? err_msg : "unknown") << std::endl;
         sqlite3_free(err_msg);
         return false;
     }
 
-    // Safe migration for existing databases: ensure thread_id column exists
+    // 2. Safe migration for existing databases: ensure thread_id column exists before creating indexes
     sqlite3_exec(db_, "ALTER TABLE messages ADD COLUMN thread_id INTEGER DEFAULT 0;", nullptr, nullptr, nullptr);
+
+    // 3. Create indexes
+    const char* indexes_sql =
+        "CREATE INDEX IF NOT EXISTS idx_messages_chat_thread_msg ON messages(chat_id, thread_id, message_id DESC);"
+        "CREATE INDEX IF NOT EXISTS idx_messages_chat_thread_time ON messages(chat_id, thread_id, timestamp DESC);";
+
+    if (sqlite3_exec(db_, indexes_sql, nullptr, nullptr, &err_msg) != SQLITE_OK) {
+        std::cerr << "[Database] Error creating indexes: " << (err_msg ? err_msg : "unknown") << std::endl;
+        sqlite3_free(err_msg);
+        return false;
+    }
 
     return prepare_statements();
 }
