@@ -24,6 +24,16 @@ struct TelegramUser {
         if (!username.empty()) return username;
         return "User" + std::to_string(id);
     }
+
+    bool is_bot_user() const {
+        if (is_bot) return true;
+        if (username.size() >= 3) {
+            std::string lower = username;
+            for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            if (lower.ends_with("bot")) return true;
+        }
+        return false;
+    }
 };
 
 struct TelegramChat {
@@ -38,6 +48,8 @@ struct TelegramMessage {
     TelegramUser from;
     TelegramChat chat;
     int64_t date = 0;
+    int64_t edit_date = 0; // Timestamp when message was edited (if edited)
+    bool is_edited = false;
     std::string text;
     std::string caption;
     std::string media_type; // e.g. "photo", "voice", "document", etc.
@@ -59,6 +71,7 @@ struct TelegramMessage {
 struct TelegramUpdate {
     int64_t update_id = 0;
     std::optional<TelegramMessage> message;
+    bool is_edit = false;
 };
 
 /**

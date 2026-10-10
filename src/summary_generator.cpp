@@ -114,6 +114,21 @@ std::string SummaryGenerator::build_transcript(const std::vector<ChatMessage>& m
             sender = "User" + std::to_string(msg.user_id);
         }
 
+        // Tag internal / external bot accounts clearly in the transcript
+        bool is_bot = false;
+        if (!msg.username.empty() && msg.username.size() >= 3) {
+            std::string u_lower = msg.username;
+            for (char& c : u_lower) {
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+            if (u_lower.ends_with("bot")) {
+                is_bot = true;
+            }
+        }
+        if (is_bot) {
+            sender = "[Bot] " + sender;
+        }
+
         std::string reply_str;
         if (!msg.reply_to_user.empty()) {
             reply_str = " (replying to " + msg.reply_to_user + ")";

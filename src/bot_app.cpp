@@ -389,7 +389,8 @@ void BotApp::handle_timezone_cmd(const TelegramMessage& msg) {
 }
 
 void BotApp::handle_message(const TelegramMessage& msg) {
-    if (msg.from.is_bot) return;
+    // Ignore messages from ourselves to prevent recursive summarization loops
+    if (msg.from.id == bot_->bot_user().id) return;
 
     std::string effective_text = msg.get_effective_text();
     if (effective_text.empty()) return;
@@ -403,6 +404,8 @@ void BotApp::handle_message(const TelegramMessage& msg) {
     bool is_invocation = parse_bot_invocation(msg, chat_settings, req, is_help, is_tz_cmd, is_start);
 
     if (is_invocation) {
+        // Bots are not allowed to trigger summary generation
+        if (msg.from.is_bot_user()) return;
         if (is_start) {
             send_start(msg.chat.id, msg.thread_id, msg.message_id);
             return;
@@ -483,6 +486,9 @@ void BotApp::handle_message(const TelegramMessage& msg) {
         if (msg.reply_to_message) {
             cm.reply_to_message_id = msg.reply_to_message->message_id;
             std::string reply_name = msg.reply_to_message->from.display_name();
+            if (msg.reply_to_message->from.is_bot_user()) {
+                reply_name = "[Bot] " + reply_name;
+            }
             if (!msg.reply_to_message->from.username.empty()) {
                 reply_name += " (@" + msg.reply_to_message->from.username + ")";
             }
@@ -495,6 +501,14 @@ void BotApp::handle_message(const TelegramMessage& msg) {
                 cm.reply_to_user = reply_name + ": \"" + snippet + "\"";
             } else {
                 cm.reply_to_user = reply_name;
+            }
+        }
+
+        if (msg.is_edited) {
+            bool rapid_edit = (msg.edit_date > 0 && msg.date > 0 && (msg.edit_date - msg.date <= 1));
+            if (rapid_edit) {
+                std::cout << "[BotApp] Rapid edit (<=1s) on message " << msg.message_id 
+                          << " from @" << msg.from.username << ": " << effective_text << std::endl;
             }
         }
 

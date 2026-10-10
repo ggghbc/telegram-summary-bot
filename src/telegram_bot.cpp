@@ -36,6 +36,10 @@ TelegramMessage parse_message(const json& j) {
         m.thread_id = j["message_thread_id"].get<int64_t>();
     }
     if (j.contains("date") && j["date"].is_number()) m.date = j["date"].get<int64_t>();
+    if (j.contains("edit_date") && j["edit_date"].is_number()) {
+        m.edit_date = j["edit_date"].get<int64_t>();
+        m.is_edited = true;
+    }
     if (j.contains("from") && j["from"].is_object()) m.from = parse_user(j["from"]);
     if (m.from.first_name.empty() && j.contains("sender_chat") && j["sender_chat"].is_object()) {
         m.from.first_name = j["sender_chat"].value("title", "Anonymous");
@@ -154,7 +158,7 @@ std::vector<TelegramUpdate> TelegramBot::get_updates(int64_t offset, int timeout
     json payload = {
         {"offset", offset},
         {"timeout", timeout_seconds},
-        {"allowed_updates", {"message"}}
+        {"allowed_updates", {"message", "edited_message"}}
     };
 
     auto res = http_.post_json(url, payload.dump(), {}, timeout_seconds + 10);
@@ -177,6 +181,10 @@ std::vector<TelegramUpdate> TelegramBot::get_updates(int64_t offset, int timeout
                 }
                 if (item.contains("message") && item["message"].is_object()) {
                     u.message = parse_message(item["message"]);
+                    u.is_edit = false;
+                } else if (item.contains("edited_message") && item["edited_message"].is_object()) {
+                    u.message = parse_message(item["edited_message"]);
+                    u.is_edit = true;
                 }
                 updates.push_back(std::move(u));
             }

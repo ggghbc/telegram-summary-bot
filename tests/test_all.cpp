@@ -264,6 +264,65 @@ void test_voice_transcription_config_and_pipeline() {
     std::cout << "[Test] test_voice_transcription_config_and_pipeline PASSED!" << std::endl;
 }
 
+void test_bot_identification_and_rules() {
+    std::cout << "[Test] Running test_bot_identification_and_rules..." << std::endl;
+
+    // 1. Username and TelegramUser bot detection
+    TelegramUser u1;
+    u1.username = "TetrisBot";
+    assert(u1.is_bot_user() == true);
+
+    TelegramUser u2;
+    u2.username = "vkmusic_bot";
+    assert(u2.is_bot_user() == true);
+
+    TelegramUser u3;
+    u3.is_bot = true;
+    u3.username = "helper";
+    assert(u3.is_bot_user() == true);
+
+    TelegramUser u4;
+    u4.username = "alice";
+    assert(u4.is_bot_user() == false);
+
+    TelegramUser u5;
+    u5.username = "bottom";
+    assert(u5.is_bot_user() == false);
+
+    // 2. Transcript tags bots with [Bot]
+    Config cfg;
+    assert(cfg.system_prompt.find("BOTS & SERVICE MESSAGES") != std::string::npos);
+
+    LlmClient dummy_llm("dummy_key", "http://localhost", "dummy_model");
+    SummaryGenerator gen(dummy_llm, cfg);
+
+    std::vector<ChatMessage> msgs;
+    ChatMessage m1;
+    m1.message_id = 1;
+    m1.user_id = 101;
+    m1.first_name = "Downloader";
+    m1.username = "save_video_bot";
+    m1.timestamp = 1700000000;
+    m1.text = "[Video]";
+    msgs.push_back(m1);
+
+    ChatMessage m2;
+    m2.message_id = 2;
+    m2.user_id = 102;
+    m2.first_name = "Alice";
+    m2.username = "alice";
+    m2.timestamp = 1700000010;
+    m2.reply_to_user = "[Bot] Downloader (@save_video_bot)";
+    m2.text = "Спасибо за видео!";
+    msgs.push_back(m2);
+
+    std::string transcript = gen.build_transcript(msgs, 3);
+    assert(transcript.find("[Bot] Downloader (@save_video_bot): [Video]") != std::string::npos);
+    assert(transcript.find("(replying to [Bot] Downloader (@save_video_bot))") != std::string::npos);
+
+    std::cout << "[Test] test_bot_identification_and_rules PASSED!" << std::endl;
+}
+
 int main() {
     std::cout << "Running all test suites..." << std::endl;
     test_database();
@@ -272,6 +331,7 @@ int main() {
     test_utf8_truncation_and_json_safety();
     test_language_localization();
     test_voice_transcription_config_and_pipeline();
+    test_bot_identification_and_rules();
     std::cout << "All test suites PASSED successfully!" << std::endl;
     return 0;
 }
