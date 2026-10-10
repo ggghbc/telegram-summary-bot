@@ -17,7 +17,7 @@ struct Config {
 
     std::string llm_api_key;
     std::string llm_api_url = "https://api.openai.com/v1/chat/completions";
-    std::string llm_model = "gpt-4o-mini";
+    std::string llm_model;
     double llm_temperature = 0.4;
     int llm_timeout_seconds = 120;
 

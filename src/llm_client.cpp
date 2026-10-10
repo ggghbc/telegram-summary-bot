@@ -69,13 +69,15 @@ std::string LlmClient::call_openai_compatible(
     std::string& out_error
 ) {
     json payload = {
-        {"model", model_},
         {"messages", {
             {{"role", "system"}, {"content", system_prompt}},
             {{"role", "user"}, {"content", user_content}}
         }},
         {"temperature", temperature_}
     };
+    if (!model_.empty()) {
+        payload["model"] = model_;
+    }
 
     std::map<std::string, std::string> headers = {
         {"Authorization", "Bearer " + api_key_}
@@ -115,6 +117,9 @@ std::string LlmClient::call_openai_compatible(
 
     try {
         json j = json::parse(res.body);
+        if (j.contains("model") && j["model"].is_string()) {
+            std::cout << "[LlmClient] Model: " << j["model"].get<std::string>() << std::endl;
+        }
         if (j.contains("choices") && j["choices"].is_array() && !j["choices"].empty()) {
             const auto& first = j["choices"][0];
             if (first.contains("message") && first["message"].contains("content")) {
@@ -307,7 +312,6 @@ std::string LlmClient::describe_image(
     } else {
         // OpenAI-compatible Chat Completions format with image_url
         json payload = {
-            {"model", model_},
             {"messages", {
                 {
                     {"role", "user"},
@@ -322,6 +326,9 @@ std::string LlmClient::describe_image(
             {"temperature", 0.2},
             {"max_tokens", 500}
         };
+        if (!model_.empty()) {
+            payload["model"] = model_;
+        }
 
         std::map<std::string, std::string> headers = {
             {"Authorization", "Bearer " + api_key_}
@@ -346,6 +353,9 @@ std::string LlmClient::describe_image(
 
         try {
             json j = json::parse(res.body);
+            if (j.contains("model") && j["model"].is_string()) {
+                std::cout << "[LlmClient] Vision model: " << j["model"].get<std::string>() << std::endl;
+            }
             if (j.contains("choices") && j["choices"].is_array() && !j["choices"].empty()) {
                 const auto& first = j["choices"][0];
                 if (first.contains("message") && first["message"].contains("content")) {

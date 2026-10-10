@@ -143,8 +143,9 @@ bool BotApp::init() {
 
     generator_ = std::make_unique<SummaryGenerator>(*llm_, config_);
 
+    std::string model_display = config_.llm_model.empty() ? "(server default / auto)" : config_.llm_model;
     std::cout << "[BotApp] Bot ready: @" << bot_->bot_user().username 
-              << " | LLM: " << config_.llm_model 
+              << " | LLM: " << model_display 
               << " (" << config_.llm_api_url << ")" << std::endl;
 
     return true;

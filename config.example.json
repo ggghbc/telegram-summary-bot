@@ -4,7 +4,7 @@
   "proxy_url": "",
   "llm_api_key": "YOUR_LLM_API_KEY",
   "llm_api_url": "https://api.openai.com/v1/chat/completions",
-  "llm_model": "gpt-4o-mini",
+  "llm_model": "",
   "llm_temperature": 0.4,
   "llm_timeout_seconds": 120,
   "max_messages_to_process": 3000,

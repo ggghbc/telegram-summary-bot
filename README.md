@@ -98,12 +98,12 @@ Configure your credentials:
 # Bot token from @BotFather
 TELEGRAM_BOT_TOKEN=your_BotFather_key_here
 
-# LLM API Key
+# LLM API Credentials (Only LLM_API_KEY and LLM_API_URL are required)
 LLM_API_KEY=your_llm_api_key_here
-
-# LLM API Endpoint and Model
 LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-LLM_MODEL=gemini-3.1-flash-lite
+
+# Optional: Specific model name (if omitted, server default/auto-routed model is used)
+# LLM_MODEL=gemini-3.1-flash-lite
 
 # Automatically scan photos and stickers into context notes (true/false)
 ENABLE_IMAGE_ANALYSIS=true
@@ -112,37 +112,48 @@ ENABLE_IMAGE_ANALYSIS=true
 # PROXY_URL=socks5h://127.0.0.1:10808
 ```
 
+> **Note on `LLM_MODEL`:** Specifying `LLM_MODEL` is completely **optional**. When omitted or left blank, the bot does not pass a model field in API requests, allowing servers or routing proxies (such as FreeLLMAPI, LiteLLM, Ollama, etc.) to use their own default model. The bot prints the actual model resolved by the server directly to the console (e.g. `[LlmClient] Model: gemini-3.1-flash-lite-preview`).
+
 #### Provider Examples
+
+- **FreeLLMAPI / Local Proxies**:
+
+    ```ini
+    LLM_API_URL=http://127.0.0.1:31415/v1/chat/completions
+    LLM_API_KEY=freellmapi-your_key_here
+    # LLM_MODEL is not needed; FreeLLMAPI automatically routes to your active provider
+    ```
 
 - **Google Gemini**:
 
     ```ini
     LLM_API_URL=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-    LLM_MODEL=gemini-3.1-flash-lite
     LLM_API_KEY=your_gemini_key
+    LLM_MODEL=gemini-3.1-flash-lite  # Optional
     ```
 
 - **OpenAI**:
 
     ```ini
-    LLM_API_URL=*openai api link*
-    LLM_MODEL=gpt-4o-mini
+    LLM_API_URL=https://api.openai.com/v1/chat/completions
     LLM_API_KEY=your_openai_key
+    LLM_MODEL=gpt-4o-mini  # Optional
     ```
 
 - **DeepSeek**:
 
     ```ini
-    LLM_API_URL=*deepseek api link*
-    LLM_MODEL=deepseek-chat
+    LLM_API_URL=https://api.deepseek.com/chat/completions
     LLM_API_KEY=your_deepseek_key
+    LLM_MODEL=deepseek-chat  # Optional
     ```
 
 - **Local Ollama**:
+
     ```ini
     LLM_API_URL=http://localhost:11434/v1/chat/completions
-    LLM_MODEL=llama3.1
     LLM_API_KEY=ollama
+    LLM_MODEL=llama3.1  # Optional
     ```
 
 ### 4. Running the Bot
