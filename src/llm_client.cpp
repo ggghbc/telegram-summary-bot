@@ -20,7 +20,28 @@ LlmClient::LlmClient(
     model_(model),
     temperature_(temperature),
     timeout_seconds_(timeout_seconds) {
-    if (!proxy.empty()) {
+    // Automatically normalize OpenAI-compatible endpoint URL:
+    // If user specified a base URL (e.g. "http://.../v1" or "http://..."),
+    // append "/chat/completions" so both base URLs and full endpoint URLs work seamlessly.
+    if (!is_gemini_native() && !api_url_.empty()) {
+        if (!api_url_.ends_with("/chat/completions")) {
+            if (api_url_.ends_with("/v1/")) {
+                api_url_ += "chat/completions";
+            } else if (api_url_.ends_with("/v1")) {
+                api_url_ += "/chat/completions";
+            } else if (api_url_.back() == '/') {
+                api_url_ += "v1/chat/completions";
+            } else {
+                api_url_ += "/v1/chat/completions";
+            }
+        }
+    }
+
+    // Only set proxy for remote endpoints; local endpoints (127.0.0.1, localhost) connect directly.
+    bool is_local = (api_url_.find("://127.0.0.1") != std::string::npos ||
+                     api_url_.find("://localhost") != std::string::npos ||
+                     api_url_.find("://[::1]") != std::string::npos);
+    if (!proxy.empty() && !is_local) {
         http_.set_proxy(proxy);
     }
 }
