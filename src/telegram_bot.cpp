@@ -52,12 +52,18 @@ TelegramMessage parse_message(const json& j) {
         if (j["photo"][idx].contains("file_id") && j["photo"][idx]["file_id"].is_string()) {
             m.photo_file_id = j["photo"][idx]["file_id"].get<std::string>();
         }
-    } else if (j.contains("voice")) {
+    } else if (j.contains("voice") && j["voice"].is_object()) {
         m.media_type = "Voice message";
+        if (j["voice"].contains("file_id") && j["voice"]["file_id"].is_string()) {
+            m.voice_file_id = j["voice"]["file_id"].get<std::string>();
+        }
+    } else if (j.contains("video_note") && j["video_note"].is_object()) {
+        m.media_type = "Video note";
+        if (j["video_note"].contains("file_id") && j["video_note"]["file_id"].is_string()) {
+            m.voice_file_id = j["video_note"]["file_id"].get<std::string>();
+        }
     } else if (j.contains("video")) {
         m.media_type = "Video";
-    } else if (j.contains("video_note")) {
-        m.media_type = "Video note";
     } else if (j.contains("document") && j["document"].is_object()) {
         std::string fname = j["document"].value("file_name", "");
         m.media_type = fname.empty() ? "Document" : "Document: " + fname;

@@ -1,6 +1,9 @@
 #include "bot_app.hpp"
 #include <iostream>
 #include <sstream>
+#include <fstream>
+#include <cstdio>
+#include <filesystem>
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -147,6 +150,26 @@ bool BotApp::init() {
     std::cout << "[BotApp] Bot ready: @" << bot_->bot_user().username 
               << " | LLM: " << model_display 
               << " (" << config_.llm_api_url << ")" << std::endl;
+
+    if (config_.enable_voice_transcription) {
+        if (config_.whisper_bin_path.empty()) {
+            const std::vector<std::string> bin_candidates = {"bin/whisper-cli", "./whisper-cli", "whisper-cli", "/usr/bin/whisper-cli", "../bin/whisper-cli"};
+            for (const auto& c : bin_candidates) {
+                if (std::filesystem::exists(c)) { config_.whisper_bin_path = c; break; }
+            }
+        }
+        if (config_.whisper_model_path.empty()) {
+            const std::vector<std::string> model_candidates = {"models/ggml-base.bin", "models/ggml-small.bin", "models/ggml-tiny.bin", "../models/ggml-base.bin"};
+            for (const auto& c : model_candidates) {
+                if (std::filesystem::exists(c)) { config_.whisper_model_path = c; break; }
+            }
+        }
+        if (!config_.whisper_bin_path.empty() && !config_.whisper_model_path.empty()) {
+            std::cout << "[BotApp] Local Whisper STT active: " << config_.whisper_bin_path << " (model: " << config_.whisper_model_path << ")" << std::endl;
+        } else {
+            std::cout << "[BotApp] Voice transcription enabled, but whisper-cli or ggml model not found. Run ./scripts/setup_whisper.sh to download." << std::endl;
+        }
+    }
 
     return true;
 }
@@ -484,6 +507,11 @@ void BotApp::handle_message(const TelegramMessage& msg) {
             analyze_and_update_image_async(msg.chat.id, msg.message_id, msg.photo_file_id, msg.caption, is_sticker);
         }
 
+        // Asynchronous voice & video note transcription using local Whisper
+        if (config_.enable_voice_transcription && !msg.voice_file_id.empty()) {
+            transcribe_and_update_audio_async(msg.chat.id, msg.message_id, msg.voice_file_id, msg.media_type, msg.caption);
+        }
+
         // Periodically prune messages to keep DB lean
         if (++message_counter_ % 50 == 0) {
             db_.prune_chat_history(msg.chat.id, msg.thread_id, config_.max_stored_messages_per_chat);
@@ -670,6 +698,109 @@ void BotApp::analyze_and_update_image_async(
             }
         } catch (const std::exception& e) {
             std::cerr << "[BotApp] Error during background image analysis: " << e.what() << std::endl;
+        }
+    }).detach();
+}
+
+void BotApp::transcribe_and_update_audio_async(
+    int64_t chat_id,
+    int64_t message_id,
+    const std::string& file_id,
+    const std::string& media_type,
+    const std::string& caption
+) {
+    std::thread([this, chat_id, message_id, file_id, media_type, caption]() {
+        try {
+            std::string whisper_bin = config_.whisper_bin_path;
+            if (whisper_bin.empty()) {
+                const std::vector<std::string> bin_candidates = {"bin/whisper-cli", "./whisper-cli", "whisper-cli", "/usr/bin/whisper-cli", "../bin/whisper-cli"};
+                for (const auto& c : bin_candidates) {
+                    if (std::filesystem::exists(c)) { whisper_bin = c; break; }
+                }
+            }
+            std::string whisper_model = config_.whisper_model_path;
+            if (whisper_model.empty()) {
+                const std::vector<std::string> model_candidates = {"models/ggml-base.bin", "models/ggml-small.bin", "models/ggml-tiny.bin", "../models/ggml-base.bin"};
+                for (const auto& c : model_candidates) {
+                    if (std::filesystem::exists(c)) { whisper_model = c; break; }
+                }
+            }
+
+            if (whisper_bin.empty() || whisper_model.empty()) {
+                std::cerr << "[BotApp] Cannot transcribe voice: whisper-cli or ggml model not found." << std::endl;
+                return;
+            }
+
+            std::string file_path = bot_->get_file_path(file_id);
+            if (file_path.empty()) return;
+
+            std::string audio_bytes = bot_->download_file(file_path);
+            if (audio_bytes.empty()) return;
+
+            std::string ext = ".tmp";
+            size_t dot_pos = file_path.rfind('.');
+            if (dot_pos != std::string::npos) {
+                ext = file_path.substr(dot_pos);
+            }
+
+            auto now_ns = std::chrono::steady_clock::now().time_since_epoch().count();
+            std::string unique_tag = std::to_string(std::abs(chat_id)) + "_" + std::to_string(message_id) + "_" + std::to_string(now_ns);
+            std::string in_temp_path = "/tmp/tg_audio_" + unique_tag + ext;
+            std::string out_wav_path = "/tmp/tg_audio_" + unique_tag + ".wav";
+
+            {
+                std::ofstream ofs(in_temp_path, std::ios::binary);
+                if (!ofs.is_open()) return;
+                ofs.write(audio_bytes.data(), audio_bytes.size());
+            }
+
+            std::string ffmpeg_cmd = "ffmpeg -y -loglevel error -i \"" + in_temp_path + "\" -ar 16000 -ac 1 -c:a pcm_s16le \"" + out_wav_path + "\" 2>/dev/null";
+            int ffmpeg_ret = std::system(ffmpeg_cmd.c_str());
+            std::remove(in_temp_path.c_str());
+
+            if (ffmpeg_ret != 0 || !std::filesystem::exists(out_wav_path)) {
+                std::cerr << "[BotApp] ffmpeg audio conversion failed for message " << message_id << std::endl;
+                std::remove(out_wav_path.c_str());
+                return;
+            }
+
+            std::string whisper_cmd = "\"" + whisper_bin + "\" -m \"" + whisper_model + "\" -f \"" + out_wav_path + "\" -l auto -nt -np 2>/dev/null";
+            std::string transcription;
+            FILE* pipe = popen(whisper_cmd.c_str(), "r");
+            if (pipe) {
+                char buf[512];
+                while (fgets(buf, sizeof(buf), pipe) != nullptr) {
+                    transcription += buf;
+                }
+                pclose(pipe);
+            }
+            std::remove(out_wav_path.c_str());
+
+            while (!transcription.empty() && (transcription.front() == ' ' || transcription.front() == '\n' || transcription.front() == '\r' || transcription.front() == '\t')) {
+                transcription.erase(transcription.begin());
+            }
+            while (!transcription.empty() && (transcription.back() == ' ' || transcription.back() == '\n' || transcription.back() == '\r' || transcription.back() == '\t')) {
+                transcription.pop_back();
+            }
+            std::replace(transcription.begin(), transcription.end(), '\n', ' ');
+
+            if (!transcription.empty()) {
+                if (transcription.size() > 2000) {
+                    transcription = SummaryGenerator::utf8_safe_truncate(transcription, 1995) + "...";
+                }
+
+                std::string tag = (media_type.find("Video note") != std::string::npos) ? "Video note" : "Voice message";
+                std::string updated_text = "[" + tag + ": \"" + transcription + "\"]";
+                if (!caption.empty()) {
+                    updated_text += " (caption: \"" + caption + "\")";
+                }
+
+                db_.update_message_text(chat_id, message_id, updated_text);
+                std::cout << "[BotApp] Transcribed " << tag << " " << message_id 
+                          << " into context: \"" << transcription << "\"" << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "[BotApp] Error during background audio transcription: " << e.what() << std::endl;
         }
     }).detach();
 }

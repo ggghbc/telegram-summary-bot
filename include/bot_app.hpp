@@ -95,6 +95,14 @@ private:
         bool is_sticker = false
     );
 
+    void transcribe_and_update_audio_async(
+        int64_t chat_id,
+        int64_t message_id,
+        const std::string& file_id,
+        const std::string& media_type,
+        const std::string& caption = ""
+    );
+
     void send_start(int64_t chat_id, int64_t thread_id, int64_t reply_to_id);
     void send_help(int64_t chat_id, int64_t thread_id, int64_t reply_to_id);
 };

@@ -42,6 +42,7 @@ struct TelegramMessage {
     std::string caption;
     std::string media_type; // e.g. "photo", "voice", "document", etc.
     std::string photo_file_id; // Telegram file_id if message contains a photo or image
+    std::string voice_file_id; // Telegram file_id if voice message or video note
     std::shared_ptr<TelegramMessage> reply_to_message;
 
     std::string get_effective_text() const {

@@ -73,7 +73,7 @@ std::string Config::get_default_system_prompt() {
            "8. LINKS AND EXTERNAL MEDIA: When messages contain links (e.g. YouTube, GitHub, news, articles), determine what is being discussed by analyzing the surrounding comments and reactions of the participants. Summarize what was actually discussed regarding the link rather than just stating that a link was shared.\n"
            "9. CONSENSUS & PARTICIPANT GROUPING: When multiple participants agree on a common point or share the same view, group them together (e.g., '*Alice*, *Bob*, and *Charlie* agreed that...') instead of creating repetitive individual entries. Reserve individual direct quotes for key arguments, distinct nuances, or contrasting viewpoints.\n"
            "10. PARALLEL THREADS & TOPIC SEPARATION: In active group chats, participants often carry on two or three distinct conversations simultaneously. Disentangle parallel conversations by tracking reply chains and context, grouping each distinct conversation into its own dedicated topic in 'Key Topics & Discussion' without blending unrelated exchanges together.\n"
-           "11. VOICE MESSAGES & VIDEO NOTES CONTEXT: When messages indicate '[Voice message]' or '[Video note]', deduce their topic and meaning from the subsequent replies, quotes, and reactions of other participants. Do not dismiss them or state that their content is unknown if other participants clearly responded to or discussed what was said.\n"
+           "11. VOICE MESSAGES & VIDEO NOTES: When messages contain transcribed voice messages or video notes (e.g. '[Voice message: \"...\"]' or '[Video note: \"...\"]'), treat the transcribed speech as authentic statements of the speaker, attribute them to the author, and quote their spoken words. If a voice message has no transcription (e.g. just '[Voice message]' or '[Video note]'), deduce its topic and meaning from the subsequent replies and reactions of other participants.\n"
            "12. ACTION ITEMS & AGREEMENTS: At the end of each relevant topic in 'Key Topics & Discussion', explicitly highlight concrete agreements, decisions, or commitments made by participants (e.g. who promised to do what, by when, or what final conclusion was reached).\n"
            "13. ADAPTIVE DEPTH & SCALE: Scale the granularity of the summary to the transcript size: for short intervals or small message counts (up to 100 messages), preserve detailed nuances of the discussion; for large volumes (hundreds or thousands of messages), synthesize into 3–6 major cohesive topic blocks focusing on key events, decisions, and outcomes, avoiding micro-summaries of fleeting comments.\n\n"
            "STRICT FORMATTING RULES:\n"
@@ -177,6 +177,15 @@ Config Config::load(const std::string& custom_config_path) {
                     if (j.contains("enable_image_analysis") && j["enable_image_analysis"].is_boolean()) {
                         cfg.enable_image_analysis = j["enable_image_analysis"].get<bool>();
                     }
+                    if (j.contains("enable_voice_transcription") && j["enable_voice_transcription"].is_boolean()) {
+                        cfg.enable_voice_transcription = j["enable_voice_transcription"].get<bool>();
+                    }
+                    if (j.contains("whisper_bin_path") && j["whisper_bin_path"].is_string()) {
+                        cfg.whisper_bin_path = j["whisper_bin_path"].get<std::string>();
+                    }
+                    if (j.contains("whisper_model_path") && j["whisper_model_path"].is_string()) {
+                        cfg.whisper_model_path = j["whisper_model_path"].get<std::string>();
+                    }
                     if (j.contains("system_prompt") && j["system_prompt"].is_string()) {
                         cfg.system_prompt = j["system_prompt"].get<std::string>();
                     }
@@ -225,6 +234,12 @@ Config Config::load(const std::string& custom_config_path) {
         std::string s = *v;
         cfg.enable_image_analysis = (s == "true" || s == "1" || s == "yes");
     }
+    if (auto v = get_env_or_map("ENABLE_VOICE_TRANSCRIPTION", env_file_map)) {
+        std::string s = *v;
+        cfg.enable_voice_transcription = (s == "true" || s == "1" || s == "yes");
+    }
+    if (auto v = get_env_or_map("WHISPER_BIN_PATH", env_file_map)) cfg.whisper_bin_path = *v;
+    if (auto v = get_env_or_map("WHISPER_MODEL_PATH", env_file_map)) cfg.whisper_model_path = *v;
 
     if (auto v = get_env_or_map("SYSTEM_PROMPT", env_file_map)) {
         cfg.system_prompt = *v;

@@ -226,6 +226,44 @@ void test_language_localization() {
     std::cout << "[Test] test_language_localization PASSED!" << std::endl;
 }
 
+void test_voice_transcription_config_and_pipeline() {
+    std::cout << "[Test] Running test_voice_transcription_config_and_pipeline..." << std::endl;
+
+    // 1. Config defaults
+    Config cfg;
+    assert(cfg.enable_voice_transcription == true);
+    assert(cfg.system_prompt.find("VOICE & VIDEO NOTE TRANSCRIPTIONS") != std::string::npos);
+
+    // 2. Database update of voice & video note messages
+    Database db;
+    std::string test_db = "test_voice.db";
+    std::remove(test_db.c_str());
+    assert(db.init(test_db));
+
+    ChatMessage vm;
+    vm.chat_id = -100999;
+    vm.message_id = 501;
+    vm.user_id = 42;
+    vm.first_name = "Alice";
+    vm.timestamp = 1700000000;
+    vm.text = "[Voice message]";
+    assert(db.save_message(vm));
+
+    // Verify initial message
+    auto msgs = db.get_last_messages(-100999, 0, 10);
+    assert(msgs.size() == 1);
+    assert(msgs[0].text == "[Voice message]");
+
+    // Update with transcription
+    assert(db.update_message_text(-100999, 501, "[Voice message: \"Привет, созвон переносится на 15:00\"]"));
+    msgs = db.get_last_messages(-100999, 0, 10);
+    assert(msgs.size() == 1);
+    assert(msgs[0].text == "[Voice message: \"Привет, созвон переносится на 15:00\"]");
+
+    std::remove(test_db.c_str());
+    std::cout << "[Test] test_voice_transcription_config_and_pipeline PASSED!" << std::endl;
+}
+
 int main() {
     std::cout << "Running all test suites..." << std::endl;
     test_database();
@@ -233,6 +271,7 @@ int main() {
     test_transcript_formatting();
     test_utf8_truncation_and_json_safety();
     test_language_localization();
+    test_voice_transcription_config_and_pipeline();
     std::cout << "All test suites PASSED successfully!" << std::endl;
     return 0;
 }
