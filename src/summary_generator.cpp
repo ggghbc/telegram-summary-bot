@@ -249,7 +249,11 @@ std::string SummaryGenerator::generate(
                 << "- Ground every statement strictly in the transcript above; do NOT invent or assume unmentioned facts or drama.\n"
                 << "- Accurately follow reply chains to preserve conversational context.\n"
                 << "- In Key Topics & Discussion, cite participants and use authentic direct quotes (\"...\") in their true chronological order.\n"
-                << "- If images/photos/stickers are described in the transcript (e.g. [Photo: ...], [Sticker: ...]), place them at their exact chronological moment in the discussion. Focus strictly on their visual content and drawing, NOT merely on emoji.\n";
+                << "- If images/photos/stickers are described in the transcript (e.g. [Photo: ...], [Sticker: ...]), place them at their exact chronological moment in the discussion. Focus strictly on their visual content and drawing, NOT merely on emoji.\n"
+                << "- Filter routine noise: ignore superficial greetings, routine confirmations ('ок', 'плюс'), and non-substantive filler.\n"
+                << "- Contextual links: when links are shared, explain what was discussed regarding the link based on participants' comments.\n"
+                << "- Participant grouping: when multiple participants share the same view, group them together instead of repeating points.\n"
+                << "- Formatting: highlight names in bold (*Name*), and put direct quotes in quotation marks (\"...\").\n";
 
     if (lang == PrimaryLanguage::Russian) {
         user_prompt << "- LANGUAGE & HEADERS: The conversation is in RUSSIAN. Output the summary entirely in Russian with Russian section headers: '*Сводка:*' and '*Ключевые темы и обсуждение:*'. Do NOT use English headers.\n";
