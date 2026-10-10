@@ -130,6 +130,88 @@ std::string SummaryGenerator::build_transcript(const std::vector<ChatMessage>& m
     return oss.str();
 }
 
+SummaryGenerator::PrimaryLanguage SummaryGenerator::detect_language(const std::vector<ChatMessage>& messages) {
+    size_t cyrillic = 0;
+    size_t latin = 0;
+    for (const auto& m : messages) {
+        for (size_t i = 0; i < m.text.size(); ++i) {
+            unsigned char c = static_cast<unsigned char>(m.text[i]);
+            if (c == 0xD0 || c == 0xD1) {
+                cyrillic++;
+            } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+                latin++;
+            }
+        }
+    }
+    if (cyrillic > 0 && (cyrillic >= latin || cyrillic >= 20)) {
+        return PrimaryLanguage::Russian;
+    }
+    return PrimaryLanguage::English;
+}
+
+std::string SummaryGenerator::localize_scope_desc(const std::string& desc, PrimaryLanguage lang) {
+    if (lang != PrimaryLanguage::Russian) {
+        return desc;
+    }
+    if (desc == "today") return "сегодня";
+    if (desc == "yesterday and today") return "вчера и сегодня";
+
+    if (desc.rfind("the last ", 0) == 0) {
+        std::string rest = desc.substr(9);
+        if (rest.ends_with(" messages")) {
+            std::string n = rest.substr(0, rest.size() - 9);
+            return "последние " + n + " сообщений";
+        }
+        if (rest.ends_with(" hours") || rest.ends_with(" hour")) {
+            size_t idx = rest.rfind(" hour");
+            std::string n = rest.substr(0, idx);
+            return "последние " + n + " ч";
+        }
+        if (rest.ends_with(" minutes") || rest.ends_with(" minute")) {
+            size_t idx = rest.rfind(" minute");
+            std::string n = rest.substr(0, idx);
+            return "последние " + n + " мин";
+        }
+        if (rest.ends_with(" days") || rest.ends_with(" day")) {
+            size_t idx = rest.rfind(" day");
+            std::string n = rest.substr(0, idx);
+            return "последние " + n + " дн";
+        }
+    }
+    return desc;
+}
+
+void SummaryGenerator::normalize_summary_headers(std::string& text, PrimaryLanguage lang) {
+    if (lang != PrimaryLanguage::Russian) return;
+
+    const std::vector<std::pair<std::string, std::string>> replacements = {
+        {"**Key Topics & Discussion:**", "*Ключевые темы и обсуждение:*"},
+        {"**Key Topics and Discussion:**", "*Ключевые темы и обсуждение:*"},
+        {"*Key Topics & Discussion:*", "*Ключевые темы и обсуждение:*"},
+        {"*Key Topics & Discussion*:", "*Ключевые темы и обсуждение:*"},
+        {"*Key Topics and Discussion:*", "*Ключевые темы и обсуждение:*"},
+        {"*Key Topics and Discussion*:", "*Ключевые темы и обсуждение:*"},
+        {"**Key Topics:**", "*Ключевые темы и обсуждение:*"},
+        {"*Key Topics:*", "*Ключевые темы и обсуждение:*"},
+        {"*Key Topics*:", "*Ключевые темы и обсуждение:*"},
+        {"Key Topics & Discussion:", "*Ключевые темы и обсуждение:*"},
+        {"Key Topics and Discussion:", "*Ключевые темы и обсуждение:*"},
+        {"Key Topics:", "*Ключевые темы и обсуждение:*"},
+        {"**Summary:**", "*Сводка:*"},
+        {"*Summary:*", "*Сводка:*"},
+        {"*Summary*:", "*Сводка:*"},
+        {"Summary:", "*Сводка:*"}
+    };
+
+    for (const auto& [from, to] : replacements) {
+        size_t pos = 0;
+        while ((pos = text.find(from, pos)) != std::string::npos) {
+            text.replace(pos, from.length(), to);
+            pos += to.length();
+        }
+    }
+}
+
 std::string SummaryGenerator::generate(
     const std::vector<ChatMessage>& messages,
     const std::string& requested_desc,
@@ -142,6 +224,9 @@ std::string SummaryGenerator::generate(
         out_error = "Message history for analysis is empty.";
         return "";
     }
+
+    PrimaryLanguage lang = detect_language(messages);
+    std::string localized_desc = localize_scope_desc(requested_desc, lang);
 
     std::string start_time = format_timestamp(messages.front().timestamp, tz_offset, tz_name);
     std::string end_time = format_timestamp(messages.back().timestamp, tz_offset, tz_name);
@@ -164,20 +249,36 @@ std::string SummaryGenerator::generate(
                 << "- Ground every statement strictly in the transcript above; do NOT invent or assume unmentioned facts or drama.\n"
                 << "- Accurately follow reply chains to preserve conversational context.\n"
                 << "- In Key Topics & Discussion, cite participants and use authentic direct quotes (\"...\") in their true chronological order.\n"
-                << "- If images/photos/stickers are described in the transcript (e.g. [Photo: ...], [Sticker: ...]), place them at their exact chronological moment in the discussion.\n"
-                << "- Write in the primary language of the conversation, strictly no emojis, no decisions section, and no open questions.";
+                << "- If images/photos/stickers are described in the transcript (e.g. [Photo: ...], [Sticker: ...]), place them at their exact chronological moment in the discussion. Focus strictly on their visual content and drawing, NOT merely on emoji.\n";
+
+    if (lang == PrimaryLanguage::Russian) {
+        user_prompt << "- LANGUAGE & HEADERS: The conversation is in RUSSIAN. Output the summary entirely in Russian with Russian section headers: '*Сводка:*' and '*Ключевые темы и обсуждение:*'. Do NOT use English headers.\n";
+    } else {
+        user_prompt << "- LANGUAGE & HEADERS: Write in the primary language of the conversation with translated section headers (e.g. '*Summary:*' and '*Key Topics & Discussion:*' for English).\n";
+    }
+
+    user_prompt << "- Strictly no emojis, no decisions section, and no open questions.";
 
     std::string summary = llm_client_.generate_summary(config_.system_prompt, user_prompt.str(), out_error);
     if (summary.empty()) {
         return "";
     }
 
-    std::ostringstream final_msg;
-    final_msg << "*Summary of " << requested_desc << " (" << messages.size() << " messages)*\n"
-              << "Time: " << start_time << " — " << end_time << "\n";
+    normalize_summary_headers(summary, lang);
 
-    if (!topic_filter.empty()) {
-        final_msg << "*Topic Focus:* " << topic_filter << "\n";
+    std::ostringstream final_msg;
+    if (lang == PrimaryLanguage::Russian) {
+        final_msg << "*Сводка за " << localized_desc << " (" << messages.size() << " сообщений)*\n"
+                  << "Время: " << start_time << " — " << end_time << "\n";
+        if (!topic_filter.empty()) {
+            final_msg << "*Фокус на теме:* " << topic_filter << "\n";
+        }
+    } else {
+        final_msg << "*Summary of " << requested_desc << " (" << messages.size() << " messages)*\n"
+                  << "Time: " << start_time << " — " << end_time << "\n";
+        if (!topic_filter.empty()) {
+            final_msg << "*Topic Focus:* " << topic_filter << "\n";
+        }
     }
 
     final_msg << "\n" << summary;

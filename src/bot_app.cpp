@@ -630,6 +630,10 @@ void BotApp::analyze_and_update_image_async(
         try {
             std::string file_path = bot_->get_file_path(file_id);
             if (file_path.empty()) return;
+            if (file_path.ends_with(".tgs") || file_path.ends_with(".webm")) {
+                // Vector lottie or WebM video cannot be analyzed by image vision API
+                return;
+            }
 
             std::string image_bytes = bot_->download_file(file_path);
             if (image_bytes.empty()) return;
@@ -641,17 +645,17 @@ void BotApp::analyze_and_update_image_async(
             std::string err;
             std::string prompt;
             if (is_sticker) {
-                prompt = "Describe what character, object, or emotion is shown in this Telegram sticker in 2-5 concise words (e.g. 'кот машет лапой', 'собака в шоке', 'мем pepe плачет', 'персонаж улыбается'). Do not include conversational filler or emojis.";
+                prompt = "Describe in detail what is visually depicted on this Telegram sticker in 1-2 informative sentences. Identify the specific character, meme, or person (e.g. Pepe, anime character, doge, movie character), their exact action, gesture, facial expression, and any readable text written on the sticker. Focus strictly on the visual drawing and illustration details rather than generic emotion or emoji. Reply in Russian if context/text is Russian or default to Russian. Do not include emojis or conversational filler.";
             } else {
-                prompt = "Describe what is shown in this image in one concise phrase or short sentence (e.g. 'скриншот с ошибкой компиляции', 'фото кота', 'мем про работу'). Do not include conversational filler or emojis.";
+                prompt = "Provide an informative and clear description of this image in 1-2 detailed sentences in Russian. Specify key subjects, actions, environment, and transcribe any important readable text, titles, code snippets, or error messages (e.g. in screenshots, memes, documents, or UI). Avoid generic phrases like 'фото кота' or 'радостная девушка' — capture specific details and context. Do not include emojis or conversational filler.";
             }
             std::string description = llm_->describe_image(image_bytes, mime_type, prompt, err);
 
             if (!description.empty()) {
                 std::replace(description.begin(), description.end(), '\n', ' ');
                 while (!description.empty() && description.back() == ' ') description.pop_back();
-                if (description.size() > 200) {
-                    description = SummaryGenerator::utf8_safe_truncate(description, 195) + "...";
+                if (description.size() > 400) {
+                    description = SummaryGenerator::utf8_safe_truncate(description, 395) + "...";
                 }
 
                 std::string prefix = is_sticker ? "[Sticker: " : "[Photo: ";

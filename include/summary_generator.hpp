@@ -52,6 +52,26 @@ public:
      */
     static std::string utf8_safe_truncate(const std::string& str, size_t max_bytes);
 
+    enum class PrimaryLanguage {
+        Russian,
+        English
+    };
+
+    /**
+     * @brief Detect whether the conversation is primarily Russian or English/other based on character scripts.
+     */
+    static PrimaryLanguage detect_language(const std::vector<ChatMessage>& messages);
+
+    /**
+     * @brief Localize requested scope description according to language.
+     */
+    static std::string localize_scope_desc(const std::string& desc, PrimaryLanguage lang);
+
+    /**
+     * @brief Normalize summary section headings to the conversation language.
+     */
+    static void normalize_summary_headers(std::string& text, PrimaryLanguage lang);
+
 private:
     LlmClient& llm_client_;
     const Config& config_;

@@ -192,12 +192,47 @@ void test_utf8_truncation_and_json_safety() {
     std::cout << "[Test] test_utf8_truncation_and_json_safety PASSED!" << std::endl;
 }
 
+void test_language_localization() {
+    std::cout << "[Test] Running test_language_localization..." << std::endl;
+
+    // 1. Language detection test
+    std::vector<ChatMessage> ru_msgs;
+    ChatMessage m1;
+    m1.text = "Привет всем, как дела с релизом?";
+    ru_msgs.push_back(m1);
+    assert(SummaryGenerator::detect_language(ru_msgs) == SummaryGenerator::PrimaryLanguage::Russian);
+
+    std::vector<ChatMessage> en_msgs;
+    ChatMessage m2;
+    m2.text = "Hello everyone, how is release going?";
+    en_msgs.push_back(m2);
+    assert(SummaryGenerator::detect_language(en_msgs) == SummaryGenerator::PrimaryLanguage::English);
+
+    // 2. Scope localization test
+    assert(SummaryGenerator::localize_scope_desc("the last 80 messages", SummaryGenerator::PrimaryLanguage::Russian) == "последние 80 сообщений");
+    assert(SummaryGenerator::localize_scope_desc("the last 24 hours", SummaryGenerator::PrimaryLanguage::Russian) == "последние 24 ч");
+    assert(SummaryGenerator::localize_scope_desc("today", SummaryGenerator::PrimaryLanguage::Russian) == "сегодня");
+    assert(SummaryGenerator::localize_scope_desc("yesterday and today", SummaryGenerator::PrimaryLanguage::Russian) == "вчера и сегодня");
+    assert(SummaryGenerator::localize_scope_desc("the last 80 messages", SummaryGenerator::PrimaryLanguage::English) == "the last 80 messages");
+
+    // 3. Header normalization test
+    std::string sample = "*Summary:*\nSome summary\n\n*Key Topics & Discussion:*\n- Topic 1";
+    SummaryGenerator::normalize_summary_headers(sample, SummaryGenerator::PrimaryLanguage::Russian);
+    assert(sample.find("*Сводка:*") != std::string::npos);
+    assert(sample.find("*Ключевые темы и обсуждение:*") != std::string::npos);
+    assert(sample.find("*Summary:*") == std::string::npos);
+    assert(sample.find("*Key Topics & Discussion:*") == std::string::npos);
+
+    std::cout << "[Test] test_language_localization PASSED!" << std::endl;
+}
+
 int main() {
     std::cout << "Running all test suites..." << std::endl;
     test_database();
     test_message_splitter();
     test_transcript_formatting();
     test_utf8_truncation_and_json_safety();
+    test_language_localization();
     std::cout << "All test suites PASSED successfully!" << std::endl;
     return 0;
 }

@@ -67,18 +67,26 @@ std::string Config::get_default_system_prompt() {
            "2. STRICT CHRONOLOGY & TIMELINE OF EVENTS: The transcript is strictly ordered from oldest to newest (top to bottom). You MUST describe events in their exact chronological order of occurrence. Never invert the timeline or claim that an earlier message happened later or at the end (e.g. do not say 'in conclusion' / 'в завершение' / 'в итоге' about an event that occurred before subsequent messages). Always check timestamps and the sequence of messages before describing who spoke first, who responded, and what happened last.\n"
            "3. DO NOT PSYCHOLOGIZE OR DRAMATIZE. Avoid subjective characterizations such as calling casual dialogue 'incoherent', 'emotional outbursts', or 'unconstructive' unless participants explicitly fought. Group chats often involve informal humor, banter, and slang — summarize what was actually said accurately and neutrally.\n"
            "4. CONTEXT & DIALOGUE FLOW: Pay strict attention to reply chains indicated by '(replying to ...)'. Accurately identify who is responding to whom and keep statements within their true conversational context.\n"
-           "5. SHARED IMAGES & STICKERS: When messages contain visual markers such as '[Photo: <description>] (reaction: \"...\")' or '[Sticker: <description>]', seamlessly integrate them into the discussion narrative at their EXACT chronological moment in the conversation. Follow the pattern: state who shared the photo or sticker, describe what was shown, and quote their comment or reaction if present (e.g., '*Alice* shared a sticker of *a cat waving* and wrote: \"meow meow\"' / '*Алиса* скинула стикер с *машущим лапой котом* и написала: \"мяу мяу\"', or '*Bob* shared an image showing *a compiler error* and reacted with: \"Why won\\'t this build?\"'), and describe how others reacted.\n"
+           "5. SHARED IMAGES & STICKERS: When messages contain visual markers such as '[Photo: <description>] (reaction: \"...\")' or '[Sticker: <description>]', seamlessly integrate them into the discussion narrative at their EXACT chronological moment in the conversation. Focus strictly on the actual visual illustration, drawing, character, and action described rather than merely reacting to the emoji. If a sticker has an emoji (e.g. '[Sticker 😭]'), interpret it through the actual conversational context rather than superficial assumptions. Follow the pattern: state who shared the photo or sticker, describe what was shown, and quote their comment or reaction if present (e.g., '*Alice* shared a sticker of *a cat waving* and wrote: \"meow meow\"' / '*Алиса* скинула стикер с *машущим лапой котом* и написала: \"мяу мяу\"', or '*Bob* shared an image showing *a compiler error* and reacted with: \"Why won\\'t this build?\"'), and describe how others reacted.\n"
            "6. ATTRIBUTION & DIRECT QUOTES: In 'Key Topics & Discussion', always attribute statements to specific participants by their name/@username. Ground every topic with authentic direct quotes in quotation marks (e.g., Alice: \"...\") from the transcript.\n\n"
            "STRICT FORMATTING RULES:\n"
            "1. ABSOLUTELY NO EMOJIS (no icons, symbols, or emoji characters anywhere in headers or body text).\n"
            "2. DO NOT include an 'Open Questions' section.\n"
            "3. DO NOT include a separate 'Decisions and Outcomes' section. Integrate all conclusions, results, and agreements directly into the main discussion section.\n"
            "4. Write in a clear, engaging style without bureaucratic jargon.\n\n"
-           "OUTPUT FORMAT (in the language of the conversation, using clean Telegram Markdown with zero emojis):\n\n"
-           "*Summary:*\n"
-           "(1-2 sentences: core subject, atmosphere, and overall context without drama or assumptions)\n\n"
-           "*Key Topics & Discussion:*\n"
-           "- Group the conversation into the main topics discussed. For each topic, provide a chronological narrative of who said what, their positions, and authentic direct quotes (\"...\") from the participants in the exact order the discussion unfolded. Integrate any conclusions or results directly within their relevant topics.";
+           "OUTPUT FORMAT (using clean Telegram Markdown with zero emojis):\n"
+           "You MUST write the entire output, INCLUDING ALL SECTION HEADERS, in the primary language of the conversation.\n"
+           "- For Russian conversations, use exactly these Russian headers:\n"
+           "  *Сводка:*\n"
+           "  (1-2 предложения: суть обсуждения, общая атмосфера и контекст без домыслов и драмы)\n\n"
+           "  *Ключевые темы и обсуждение:*\n"
+           "  - Сгруппируйте беседу по основным обсуждавшимся темам. Внутри каждой темы последовательно и в точной хронологии изложите, кто что сказал, аргументы участников и приведите подлинные прямые цитаты в кавычках (\"...\"). Все выводы и договорённости включайте прямо в соответствующие темы.\n\n"
+           "- For English conversations, use headers:\n"
+           "  *Summary:*\n"
+           "  (1-2 sentences: core subject, atmosphere, and overall context without drama or assumptions)\n\n"
+           "  *Key Topics & Discussion:*\n"
+           "  - Group the conversation into the main topics discussed. For each topic, provide a chronological narrative of who said what, their positions, and authentic direct quotes (\"...\") from the participants in the exact order the discussion unfolded. Integrate any conclusions or results directly within their relevant topics.\n\n"
+           "- For other languages, translate '*Summary:*' and '*Key Topics & Discussion:*' into that language.";
 }
 
 Config Config::load(const std::string& custom_config_path) {
