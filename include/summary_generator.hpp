@@ -47,6 +47,11 @@ public:
      */
     static std::string format_timestamp(int64_t timestamp, int tz_offset = 3, const std::string& tz_name = "MSK");
 
+    /**
+     * @brief Truncate a UTF-8 string to at most max_bytes without splitting multi-byte sequences.
+     */
+    static std::string utf8_safe_truncate(const std::string& str, size_t max_bytes);
+
 private:
     LlmClient& llm_client_;
     const Config& config_;

@@ -1,6 +1,7 @@
 #include <cassert>
 #include <iostream>
 #include <filesystem>
+#include <nlohmann/json.hpp>
 #include "db.hpp"
 #include "telegram_bot.hpp"
 #include "summary_generator.hpp"
@@ -155,11 +156,48 @@ void test_transcript_formatting() {
     std::cout << "[Test] test_transcript_formatting PASSED!" << std::endl;
 }
 
+void test_utf8_truncation_and_json_safety() {
+    std::cout << "[Test] Running test_utf8_truncation_and_json_safety..." << std::endl;
+
+    // Test Cyrillic string where each char is 2 bytes
+    std::string cyrillic = "Привет мир! Это проверка длинного текста.";
+    for (size_t max_len = 1; max_len <= cyrillic.size() + 5; ++max_len) {
+        std::string truncated = SummaryGenerator::utf8_safe_truncate(cyrillic, max_len);
+        assert(truncated.size() <= max_len);
+        // Ensure serialization into JSON does not throw
+        nlohmann::json j = {{"text", truncated}};
+        std::string dumped = j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+        assert(!dumped.empty());
+    }
+
+    // Test with emoji (4 bytes: 🐶 = 0xF0 0x9F 0x90 0xB6)
+    std::string emoji_str = "Тест 🐶🐶🐶 проверка";
+    for (size_t max_len = 1; max_len <= emoji_str.size() + 5; ++max_len) {
+        std::string truncated = SummaryGenerator::utf8_safe_truncate(emoji_str, max_len);
+        assert(truncated.size() <= max_len);
+        nlohmann::json j = {{"text", truncated}};
+        std::string dumped = j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+        assert(!dumped.empty());
+    }
+
+    // Test with an intentionally corrupted UTF-8 string:
+    // e.g. 0xD0 followed by 0x2E (period '.') which is the exact scenario that triggered error 316
+    std::string broken = "Invalid: \xD0\x2E test \xD1\x5B end";
+    nlohmann::json j_broken = {{"text", broken}};
+    // Under strict dump, this would throw type_error.316; with replace, it must succeed safely!
+    std::string dumped_broken = j_broken.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+    assert(!dumped_broken.empty());
+    assert(dumped_broken.find("Invalid:") != std::string::npos);
+
+    std::cout << "[Test] test_utf8_truncation_and_json_safety PASSED!" << std::endl;
+}
+
 int main() {
     std::cout << "Running all test suites..." << std::endl;
     test_database();
     test_message_splitter();
     test_transcript_formatting();
+    test_utf8_truncation_and_json_safety();
     std::cout << "All test suites PASSED successfully!" << std::endl;
     return 0;
 }

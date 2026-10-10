@@ -271,13 +271,13 @@ int64_t TelegramBot::send_message(
             payload["reply_to_message_id"] = reply_to_message_id;
         }
 
-        auto res = http_.post_json(url, payload.dump(), {}, 20);
+        auto res = http_.post_json(url, payload.dump(-1, ' ', false, json::error_handler_t::replace), {}, 20);
 
         // Fallback: If Telegram rejected markdown, retry in plain text
         if (!res.is_success() && !parse_mode.empty()) {
             std::cerr << "[TelegramBot] Markdown parse failed for sendMessage, retrying plain text..." << std::endl;
             payload.erase("parse_mode");
-            res = http_.post_json(url, payload.dump(), {}, 20);
+            res = http_.post_json(url, payload.dump(-1, ' ', false, json::error_handler_t::replace), {}, 20);
         }
 
         if (res.is_success()) {
@@ -312,10 +312,10 @@ bool TelegramBot::edit_message_text(
         payload["parse_mode"] = parse_mode;
     }
 
-    auto res = http_.post_json(url, payload.dump(), {}, 20);
+    auto res = http_.post_json(url, payload.dump(-1, ' ', false, json::error_handler_t::replace), {}, 20);
     if (!res.is_success() && !parse_mode.empty()) {
         payload.erase("parse_mode");
-        res = http_.post_json(url, payload.dump(), {}, 20);
+        res = http_.post_json(url, payload.dump(-1, ' ', false, json::error_handler_t::replace), {}, 20);
     }
     return res.is_success();
 }

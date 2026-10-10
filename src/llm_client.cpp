@@ -62,7 +62,7 @@ std::string LlmClient::call_openai_compatible(
 
     HttpResponse res;
     for (int attempt = 1; attempt <= 3; ++attempt) {
-        res = http_.post_json(api_url_, payload.dump(), headers, timeout_seconds_);
+        res = http_.post_json(api_url_, payload.dump(-1, ' ', false, json::error_handler_t::replace), headers, timeout_seconds_);
         if (res.is_success()) {
             break;
         }
@@ -134,7 +134,7 @@ std::string LlmClient::call_gemini_native(
         }}
     };
 
-    auto res = http_.post_json(url, payload.dump(), {}, timeout_seconds_);
+    auto res = http_.post_json(url, payload.dump(-1, ' ', false, json::error_handler_t::replace), {}, timeout_seconds_);
     if (!res.is_success()) {
         out_error = "Gemini API Error (HTTP " + std::to_string(res.status_code) + "): " +
                     (res.error_message.empty() ? res.body : res.error_message);
@@ -252,7 +252,7 @@ std::string LlmClient::describe_image(
 
         HttpResponse res;
         for (int attempt = 1; attempt <= 3; ++attempt) {
-            res = http_.post_json(url, payload.dump(), {}, timeout_seconds_);
+            res = http_.post_json(url, payload.dump(-1, ' ', false, json::error_handler_t::replace), {}, timeout_seconds_);
             if (res.is_success()) break;
             if ((res.status_code == 503 || res.status_code == 429) && attempt < 3) {
                 std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -308,7 +308,7 @@ std::string LlmClient::describe_image(
 
         HttpResponse res;
         for (int attempt = 1; attempt <= 3; ++attempt) {
-            res = http_.post_json(api_url_, payload.dump(), headers, timeout_seconds_);
+            res = http_.post_json(api_url_, payload.dump(-1, ' ', false, json::error_handler_t::replace), headers, timeout_seconds_);
             if (res.is_success()) break;
             if ((res.status_code == 503 || res.status_code == 429) && attempt < 3) {
                 std::this_thread::sleep_for(std::chrono::seconds(2));

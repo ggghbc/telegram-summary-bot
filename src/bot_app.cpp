@@ -466,7 +466,7 @@ void BotApp::handle_message(const TelegramMessage& msg) {
             if (!snippet.empty()) {
                 std::replace(snippet.begin(), snippet.end(), '\n', ' ');
                 if (snippet.size() > 50) {
-                    snippet = snippet.substr(0, 47) + "...";
+                    snippet = SummaryGenerator::utf8_safe_truncate(snippet, 47) + "...";
                 }
                 cm.reply_to_user = reply_name + ": \"" + snippet + "\"";
             } else {
@@ -650,7 +650,7 @@ void BotApp::analyze_and_update_image_async(
                 std::replace(description.begin(), description.end(), '\n', ' ');
                 while (!description.empty() && description.back() == ' ') description.pop_back();
                 if (description.size() > 200) {
-                    description = description.substr(0, 195) + "...";
+                    description = SummaryGenerator::utf8_safe_truncate(description, 195) + "...";
                 }
 
                 std::string prefix = is_sticker ? "[Sticker: " : "[Photo: ";

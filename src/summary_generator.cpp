@@ -24,6 +24,36 @@ std::string SummaryGenerator::format_timestamp(int64_t timestamp, int tz_offset,
     return oss.str();
 }
 
+std::string SummaryGenerator::utf8_safe_truncate(const std::string& str, size_t max_bytes) {
+    if (str.size() <= max_bytes) return str;
+    size_t pos = max_bytes;
+
+    // Walk back over UTF-8 continuation bytes (10xxxxxx)
+    while (pos > 0 && (static_cast<unsigned char>(str[pos]) & 0xC0) == 0x80) {
+        --pos;
+    }
+
+    if (pos < max_bytes) {
+        unsigned char lead = static_cast<unsigned char>(str[pos]);
+        size_t char_len = 1;
+        if ((lead & 0x80) == 0) {
+            char_len = 1;
+        } else if ((lead & 0xE0) == 0xC0) {
+            char_len = 2;
+        } else if ((lead & 0xF0) == 0xE0) {
+            char_len = 3;
+        } else if ((lead & 0xF8) == 0xF0) {
+            char_len = 4;
+        }
+
+        if (pos + char_len <= max_bytes) {
+            pos += char_len;
+        }
+    }
+
+    return str.substr(0, pos);
+}
+
 namespace {
 std::string format_time_only(int64_t timestamp, int tz_offset) {
     std::time_t t = static_cast<std::time_t>(timestamp) + static_cast<std::time_t>(tz_offset * 3600);
@@ -92,7 +122,7 @@ std::string SummaryGenerator::build_transcript(const std::vector<ChatMessage>& m
         // Token saving: truncate massive text dumps (> 500 chars)
         std::string text = msg.text;
         if (text.size() > 500) {
-            text = text.substr(0, 495) + "[...]";
+            text = utf8_safe_truncate(text, 495) + "[...]";
         }
 
         oss << "[" << time_str << "] " << sender << reply_str << ": " << text << "\n";
