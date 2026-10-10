@@ -47,6 +47,21 @@ public:
         std::string& out_error
     );
 
+    /**
+     * @brief Transcribe audio or video note using multimodal LLM capabilities.
+     * @param audio_bytes Raw audio binary data.
+     * @param mime_type MIME type of the audio (e.g. "audio/ogg", "video/mp4", "audio/wav").
+     * @param prompt Prompt / instruction for transcription.
+     * @param out_error Output error string if request fails.
+     * @return Transcribed speech text.
+     */
+    std::string transcribe_audio(
+        const std::string& audio_bytes,
+        const std::string& mime_type,
+        const std::string& prompt,
+        std::string& out_error
+    );
+
 private:
     std::string api_key_;
     std::string api_url_;

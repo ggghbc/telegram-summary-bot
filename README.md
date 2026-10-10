@@ -7,7 +7,7 @@ A high-performance Telegram bot that maintains a persistent local chat history a
 ## Highlights & Architecture
 
 - **Performance**: Built with modern C++20.
-- **Local Offline Voice & Video Note Transcription (Whisper STT)**: Automatically transcribes Telegram voice messages and video notes (`кружочки`) locally in the background using `whisper.cpp` and `ffmpeg`. Spoken text is seamlessly saved into chat context (`[Voice message: "..."]` / `[Video note: "..."]`) so the LLM summarizes voice chats directly and accurately — 100% free, private, offline, without external STT API dependencies.
+- **Automatic Voice & Video Note Transcription**: Automatically transcribes Telegram voice messages and video notes (`кружочки`) in the background using your configured multimodal LLM API. Spoken text is seamlessly saved into chat context (`[Voice message: "..."]` / `[Video note: "..."]`) so the LLM summarizes voice chats directly and accurately, with zero extra external binaries or local STT setup required.
 - **Automatic Visual & Sticker Context Scanning**: Automatically scans photos, screenshots, and Telegram stickers into concise context notes (e.g. *Alice* shared a sticker of *a cat waving* and wrote: "meow meow", or *Bob* shared an image showing *a build error*). Highly token-efficient (converts visuals into lightweight 1-sentence text notes in the background; zero multimodal vision tokens during summary generation) and easily toggleable via `ENABLE_IMAGE_ANALYSIS=true/false`.
 - **Strict Factual Grounding**: Follows reply chains with quoted snippets, attributes statements with authentic participant quotes (`"..."`), and prohibits psychologizing or dramatic extrapolations.
 - **SQLite 3 with WAL Mode**: Embedded SQLite 3 database operating in Write-Ahead Logging (`WAL`) mode. Message insertion takes `< 0.1 ms`.
@@ -59,16 +59,15 @@ _(Alternatively, promote the bot to Group Administrator with message-reading pri
 - `CMake 3.20+`
 - `Ninja` or `Make`
 - `libcurl` and `sqlite3` development packages
-- `ffmpeg` (recommended for voice and video note conversion)
 
 **Install dependencies:**
 
 ```bash
 # Arch Linux
-sudo pacman -S base-devel cmake ninja curl sqlite ffmpeg
+sudo pacman -S base-devel cmake ninja curl sqlite
 
 # Ubuntu / Debian
-sudo apt update && sudo apt install -y build-essential cmake ninja-build libcurl4-openssl-dev libsqlite3-dev ffmpeg
+sudo apt update && sudo apt install -y build-essential cmake ninja-build libcurl4-openssl-dev libsqlite3-dev
 ```
 
 ### 2. Build the Project
@@ -85,21 +84,7 @@ cmake --build build
 ./build/test_all
 ```
 
-### 3. (Optional) Setup Local Whisper Speech-to-Text
-
-To enable 100% free, offline, and private transcription of voice messages and video notes (`кружочки`):
-
-```bash
-# Automatically downloads the GGML model (base by default) and builds whisper-cli to bin/whisper-cli
-./scripts/setup_whisper.sh
-
-# Or download a different model (e.g. tiny, small):
-# ./scripts/setup_whisper.sh small
-```
-
-The bot auto-detects `bin/whisper-cli` and `models/ggml-base.bin` on launch. Transcription runs asynchronously in the background so polling is never blocked.
-
-### 4. Configuration
+### 3. Configuration
 
 Create a `.env` file from the provided template:
 
@@ -172,7 +157,7 @@ ENABLE_IMAGE_ANALYSIS=true
     LLM_MODEL=llama3.1  # Optional
     ```
 
-### 5. Running the Bot
+### 4. Running the Bot
 
 Run directly from either the project root or the `build` directory:
 
@@ -205,7 +190,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now telegram-summary-bot
 ```
 
-### 6. Running via Docker / Docker Compose
+### 5. Running via Docker / Docker Compose
 
 ```bash
 # Start container in detached mode

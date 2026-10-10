@@ -261,6 +261,14 @@ void test_voice_transcription_config_and_pipeline() {
     assert(msgs[0].text == "[Voice message: \"Привет, созвон переносится на 15:00\"]");
 
     std::remove(test_db.c_str());
+
+    // 3. LlmClient transcribe_audio sanity check
+    LlmClient client("test_key", "http://127.0.0.1:9999", "test_model");
+    std::string err;
+    std::string res = client.transcribe_audio("", "audio/ogg", "test prompt", err);
+    assert(res.empty());
+    assert(!err.empty());
+
     std::cout << "[Test] test_voice_transcription_config_and_pipeline PASSED!" << std::endl;
 }
 

@@ -28,9 +28,7 @@ struct Config {
     bool admin_only_summaries = false;
     int rate_limit_seconds = 30; // Cooldown between summary requests per chat
     bool enable_image_analysis = true; // Use vision LLM to analyze photos in chat context
-    bool enable_voice_transcription = true; // Use local Whisper to transcribe voice & video notes
-    std::string whisper_bin_path; // Path to whisper-cli binary (auto-detected if empty)
-    std::string whisper_model_path; // Path to ggml model file (auto-detected if empty)
+    bool enable_voice_transcription = true; // Use main LLM API to transcribe voice & video notes
 
     std::string db_path = "messages.db";
     std::string system_prompt;

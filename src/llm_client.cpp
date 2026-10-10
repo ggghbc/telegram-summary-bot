@@ -370,4 +370,167 @@ std::string LlmClient::describe_image(
     }
 }
 
+std::string LlmClient::transcribe_audio(
+    const std::string& audio_bytes,
+    const std::string& mime_type,
+    const std::string& prompt,
+    std::string& out_error
+) {
+    if (audio_bytes.empty()) {
+        out_error = "Audio binary data is empty";
+        return "";
+    }
+
+    std::string b64 = base64_encode(audio_bytes);
+    std::string effective_mime = mime_type.empty() ? "audio/ogg" : mime_type;
+
+    if (is_gemini_native()) {
+        std::string url = api_url_;
+        if (url.find("key=") == std::string::npos) {
+            url += (url.find('?') == std::string::npos ? "?key=" : "&key=") + api_key_;
+        }
+
+        json payload = {
+            {"contents", {
+                {
+                    {"role", "user"},
+                    {"parts", {
+                        {{"text", prompt}},
+                        {
+                            {"inline_data", {
+                                {"mime_type", effective_mime},
+                                {"data", b64}
+                            }}
+                        }
+                    }}
+                }
+            }},
+            {"generationConfig", {
+                {"temperature", 0.1},
+                {"maxOutputTokens", 1000}
+            }}
+        };
+
+        HttpResponse res;
+        for (int attempt = 1; attempt <= 3; ++attempt) {
+            res = http_.post_json(url, payload.dump(-1, ' ', false, json::error_handler_t::replace), {}, timeout_seconds_);
+            if (res.is_success()) break;
+            if ((res.status_code == 503 || res.status_code == 429) && attempt < 3) {
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                continue;
+            }
+            break;
+        }
+
+        if (!res.is_success()) {
+            out_error = "Gemini Audio Error (HTTP " + std::to_string(res.status_code) + "): " +
+                        (res.error_message.empty() ? res.body : res.error_message);
+            return "";
+        }
+
+        try {
+            json j = json::parse(res.body);
+            if (j.contains("candidates") && j["candidates"].is_array() && !j["candidates"].empty()) {
+                const auto& candidate = j["candidates"][0];
+                if (candidate.contains("content") && candidate["content"].contains("parts")) {
+                    const auto& parts = candidate["content"]["parts"];
+                    if (parts.is_array() && !parts.empty() && parts[0].contains("text")) {
+                        return parts[0]["text"].get<std::string>();
+                    }
+                }
+            }
+            out_error = "Malformed Gemini audio response: missing content parts";
+        } catch (const std::exception& e) {
+            out_error = std::string("JSON parsing error on Gemini audio response: ") + e.what();
+        }
+        return "";
+    } else {
+        // OpenAI-compatible Chat Completions format with data URI
+        json payload = {
+            {"messages", {
+                {
+                    {"role", "user"},
+                    {"content", json::array({
+                        {{"type", "text"}, {"text", prompt}},
+                        {{"type", "image_url"}, {"image_url", {
+                            {"url", "data:" + effective_mime + ";base64," + b64}
+                        }}}
+                    })}
+                }
+            }},
+            {"temperature", 0.1},
+            {"max_tokens", 1000}
+        };
+        if (!model_.empty()) {
+            payload["model"] = model_;
+        }
+
+        std::map<std::string, std::string> headers = {
+            {"Authorization", "Bearer " + api_key_}
+        };
+
+        HttpResponse res;
+        for (int attempt = 1; attempt <= 3; ++attempt) {
+            res = http_.post_json(api_url_, payload.dump(-1, ' ', false, json::error_handler_t::replace), headers, timeout_seconds_);
+            if (res.is_success()) break;
+            if ((res.status_code == 503 || res.status_code == 429) && attempt < 3) {
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+                continue;
+            }
+            break;
+        }
+
+        // If data URI failed with client error (400), attempt fallback to standard OpenAI input_audio
+        if (!res.is_success() && res.status_code == 400) {
+            std::string audio_fmt = "wav";
+            if (effective_mime.find("mp3") != std::string::npos || effective_mime.find("mpeg") != std::string::npos) {
+                audio_fmt = "mp3";
+            }
+            json fallback_payload = {
+                {"messages", {
+                    {
+                        {"role", "user"},
+                        {"content", json::array({
+                            {{"type", "text"}, {"text", prompt}},
+                            {{"type", "input_audio"}, {"input_audio", {
+                                {"data", b64},
+                                {"format", audio_fmt}
+                            }}}
+                        })}
+                    }
+                }},
+                {"temperature", 0.1},
+                {"max_tokens", 1000}
+            };
+            if (!model_.empty()) {
+                fallback_payload["model"] = model_;
+            }
+            res = http_.post_json(api_url_, fallback_payload.dump(-1, ' ', false, json::error_handler_t::replace), headers, timeout_seconds_);
+        }
+
+        if (!res.is_success()) {
+            out_error = "LLM Audio Error (HTTP " + std::to_string(res.status_code) + "): " +
+                        (res.error_message.empty() ? res.body : res.error_message);
+            return "";
+        }
+
+        try {
+            json j = json::parse(res.body);
+            if (j.contains("model") && j["model"].is_string()) {
+                std::cout << "[LlmClient] Audio transcription model: " << j["model"].get<std::string>() << std::endl;
+            }
+            if (j.contains("choices") && j["choices"].is_array() && !j["choices"].empty()) {
+                const auto& first = j["choices"][0];
+                if (first.contains("message") && first["message"].contains("content")) {
+                    return first["message"]["content"].get<std::string>();
+                }
+            }
+            out_error = "Malformed audio response: missing choices[0].message.content";
+        } catch (const std::exception& e) {
+            out_error = std::string("JSON parsing error on audio response: ") + e.what();
+        }
+        return "";
+    }
+}
+
 } // namespace summarybot

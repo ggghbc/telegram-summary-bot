@@ -186,12 +186,6 @@ Config Config::load(const std::string& custom_config_path) {
                     if (j.contains("enable_voice_transcription") && j["enable_voice_transcription"].is_boolean()) {
                         cfg.enable_voice_transcription = j["enable_voice_transcription"].get<bool>();
                     }
-                    if (j.contains("whisper_bin_path") && j["whisper_bin_path"].is_string()) {
-                        cfg.whisper_bin_path = j["whisper_bin_path"].get<std::string>();
-                    }
-                    if (j.contains("whisper_model_path") && j["whisper_model_path"].is_string()) {
-                        cfg.whisper_model_path = j["whisper_model_path"].get<std::string>();
-                    }
                     if (j.contains("system_prompt") && j["system_prompt"].is_string()) {
                         cfg.system_prompt = j["system_prompt"].get<std::string>();
                     }
@@ -244,8 +238,6 @@ Config Config::load(const std::string& custom_config_path) {
         std::string s = *v;
         cfg.enable_voice_transcription = (s == "true" || s == "1" || s == "yes");
     }
-    if (auto v = get_env_or_map("WHISPER_BIN_PATH", env_file_map)) cfg.whisper_bin_path = *v;
-    if (auto v = get_env_or_map("WHISPER_MODEL_PATH", env_file_map)) cfg.whisper_model_path = *v;
 
     if (auto v = get_env_or_map("SYSTEM_PROMPT", env_file_map)) {
         cfg.system_prompt = *v;
