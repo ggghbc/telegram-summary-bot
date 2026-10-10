@@ -253,7 +253,11 @@ std::string SummaryGenerator::generate(
                 << "- Filter routine noise: ignore superficial greetings, routine confirmations ('ок', 'плюс'), and non-substantive filler.\n"
                 << "- Contextual links: when links are shared, explain what was discussed regarding the link based on participants' comments.\n"
                 << "- Participant grouping: when multiple participants share the same view, group them together instead of repeating points.\n"
-                << "- Formatting: highlight names in bold (*Name*), and put direct quotes in quotation marks (\"...\").\n";
+                << "- Formatting: highlight names in bold (*Name*), and put direct quotes in quotation marks (\"...\").\n"
+                << "- Disentangle parallel threads: group separate discussions into distinct topics.\n"
+                << "- Voice/video context: infer voice/video topics from surrounding replies.\n"
+                << "- Action items: explicitly highlight commitments and agreements in each topic.\n"
+                << "- Adaptive scale: synthesize large message volumes into 3-6 major cohesive topic blocks.\n";
 
     if (lang == PrimaryLanguage::Russian) {
         user_prompt << "- LANGUAGE & HEADERS: The conversation is in RUSSIAN. Output the summary entirely in Russian with Russian section headers: '*Сводка:*' and '*Ключевые темы и обсуждение:*'. Do NOT use English headers.\n";
